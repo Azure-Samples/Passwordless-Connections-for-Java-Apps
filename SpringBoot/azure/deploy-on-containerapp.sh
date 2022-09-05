@@ -9,6 +9,7 @@ DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 ACR_NAME=credenialfreeacr
 CONTAINERAPPS_ENVIRONMENT=acaenv-passwordless
 CONTAINERAPPS_NAME=aca-passwordless
+CONTAINERAPPS_CONTAINERNAME=passwordless-container
 
 LOCATION=eastus
 POSTGRESQL_ADMIN_USER=azureuser
@@ -63,15 +64,7 @@ az role assignment create \
 
 POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?clientid=${USER_IDENTITY}"
 
-# create service connection.
-az containerapp connection create postgres-flexible \
-    --resource-group $RESOURCE_GROUP \
-    --name $APPSERVICE_NAME \
-    --tg $RESOURCE_GROUP \
-    --server $POSTGRESQL_HOST \
-    --database $DATABASE_NAME \
-    --client-type springboot \
-    --system-identity
+
 
 # Build JAR file and push to ACR using buildAcr profile
 mvn clean package -DskipTests -PbuildAcr -DRESOURCE_GROUP=$RESOURCE_GROUP -DACR_NAME=$ACR_NAME
@@ -81,12 +74,23 @@ az containerapp create \
     --name ${CONTAINERAPPS_NAME} \
     --resource-group $RESOURCE_GROUP \
     --environment $CONTAINERAPPS_ENVIRONMENT \
-    --container-name passwordless-container \
+    --container-name $CONTAINERAPPS_CONTAINERNAME \
     --user-assigned ${CONTAINERAPPS_NAME} \
     --registry-server $ACR_NAME.azurecr.io \
-    --image $ACR_NAME.azurecr.io/spring-passwordless:0.0.1-SNAPSHOT \
+    --image $ACR_NAME.azurecr.io/spring-checklist-passwordless:0.0.1-SNAPSHOT \
     --ingress external \
     --target-port 8080 \
     --cpu 1 \
     --memory 2 \
     --env-vars "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+
+# create service connection.
+az containerapp connection create postgres-flexible \
+    --resource-group $RESOURCE_GROUP \
+    --name $CONTAINERAPPS_NAME \
+    --container $CONTAINERAPPS_CONTAINERNAME \
+    --tg $RESOURCE_GROUP \
+    --server $POSTGRESQL_HOST \
+    --database $DATABASE_NAME \
+    --client-type springboot \
+    --system-identity
