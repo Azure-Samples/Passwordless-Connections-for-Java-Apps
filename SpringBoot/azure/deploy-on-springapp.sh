@@ -1,12 +1,12 @@
-RESOURCE_GROUP=rg-spring-credential-free
-POSTGRESQL_HOST=psql-spring-credential-free
+RESOURCE_GROUP=rg-spring-springapp-passwordless
+POSTGRESQL_HOST=psql-spring-springapp-passwordless
 DATABASE_NAME=checklist
 DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 # Note that the connection url does not includes the password-free authentication plugin
 # The configuration is injected by spring-cloud-azure-starter-jdbc
 POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}"
-APPSERVICE_NAME=spring-credential-free
-SPRING_APPS_SERVICE=credential-free-spring
+APPSERVICE_NAME=spring-springapp-passwordless
+SPRING_APPS_SERVICE=passwordless-spring
 LOCATION=eastus
 POSTGRESQL_ADMIN_USER=azureuser
 # Generating a random password for the PostgreSQL admin user as it is mandatory
@@ -25,18 +25,19 @@ APPSERVICE_LOGIN_NAME='checklistapp'
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password $POSTGRESQL_ADMIN_PASSWORD \
-    --public-network-access 0.0.0.0 \
-    --sku-name B_Gen5_1 
-# create postgres server AAD admin user
-az postgres server ad-admin create --server-name $POSTGRESQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --storage-size 32 
+
 # create postgres database
-az postgres db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -n $DATABASE_NAME
+az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
 
 # Create Spring App service
 az spring create --name ${SPRING_APPS_SERVICE} \
@@ -51,7 +52,7 @@ az spring app create --name ${APPSERVICE_NAME} \
     --assign-endpoint true 
 
 # create service connection.The service connection creates the managed identity if not exists.
-az spring connection create postgres \
+az spring connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --service $SPRING_APPS_SERVICE \
     --connection demo_connection \
@@ -70,4 +71,5 @@ mvn clean package -DskipTests -f ../pom.xml
 az spring app deploy --name $APPSERVICE_NAME\
     --resource-group $RESOURCE_GROUP \
     --service $SPRING_APPS_SERVICE \
-    --artifact-path ../target/app.jar
+    --artifact-path ../target/app.jar \
+    --env "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"

@@ -1,5 +1,5 @@
-RESOURCE_GROUP=rg-spring-containerapp-credential-free
-POSTGRESQL_HOST=psql-spring-containerapp-credential-free
+RESOURCE_GROUP=rg-spring-containerapp-passwordless
+POSTGRESQL_HOST=psql-spring-containerapp-passwordless
 DATABASE_NAME=checklist
 DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 # Note that the connection url does not includes the password-free authentication plugin
@@ -7,8 +7,8 @@ DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 
 # CONTAINER APPS RELATED VARIABLES
 ACR_NAME=credenialfreeacr
-CONTAINERAPPS_ENVIRONMENT=acaenv-credential-free
-CONTAINERAPPS_NAME=aca-credential-free
+CONTAINERAPPS_ENVIRONMENT=acaenv-passwordless
+CONTAINERAPPS_NAME=aca-passwordless
 
 LOCATION=eastus
 POSTGRESQL_ADMIN_USER=azureuser
@@ -28,18 +28,18 @@ APPSERVICE_LOGIN_NAME='checklistapp'
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password $POSTGRESQL_ADMIN_PASSWORD \
-    --public-network-access 0.0.0.0 \
-    --sku-name B_Gen5_1
-# create postgres server AAD admin user
-az postgres server ad-admin create --server-name $POSTGRESQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --storage-size 32 
 # create postgres database
-az postgres db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -n $DATABASE_NAME
+az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
 
 # create an Azure Container Registry (ACR) to hold the images for the demo
 az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION --admin-enabled true
@@ -63,32 +63,15 @@ az role assignment create \
 
 POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?clientid=${USER_IDENTITY}"
 
-# create service connection. Not yet supported for containerapp and managed identity
-# It would be something like: az containerapp connection create postgres...
-# So creating manually:
-# 0. Create a temporary firewall rule to allow connections from current machine to the postgres server
-MY_IP=$(curl http://whatismyip.akamai.com)
-az postgres server firewall-rule create --resource-group $RESOURCE_GROUP --server $POSTGRESQL_HOST --name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
-# 1. Create postgres user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
-export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <<EOF
-SET aad_validate_oids_in_tenant = off;
-
-REVOKE ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" FROM "${APPSERVICE_LOGIN_NAME}";
-
-DROP USER IF EXISTS "${APPSERVICE_LOGIN_NAME}";
-DROP USER IF EXISTS "${APPSERVICE_LOGIN_NAME}@${CURRENT_USER_DOMAIN}";
-
-CREATE ROLE "${APPSERVICE_LOGIN_NAME}" WITH LOGIN PASSWORD '${USER_IDENTITY}' IN ROLE azure_ad_user;
-
-GRANT ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" TO "${APPSERVICE_LOGIN_NAME}";
-
-EOF
-
-# 2. Remove temporary firewall rule
-az postgres server firewall-rule delete --resource-group $RESOURCE_GROUP --server $POSTGRESQL_HOST --name AllowCurrentMachineToConnect
-
-# Service connection to postgresql end of configuration
+# create service connection.
+az containerapp connection create postgres-flexible \
+    --resource-group $RESOURCE_GROUP \
+    --name $APPSERVICE_NAME \
+    --tg $RESOURCE_GROUP \
+    --server $POSTGRESQL_HOST \
+    --database $DATABASE_NAME \
+    --client-type springboot \
+    --system-identity
 
 # Build JAR file and push to ACR using buildAcr profile
 mvn clean package -DskipTests -PbuildAcr -DRESOURCE_GROUP=$RESOURCE_GROUP -DACR_NAME=$ACR_NAME
@@ -98,12 +81,12 @@ az containerapp create \
     --name ${CONTAINERAPPS_NAME} \
     --resource-group $RESOURCE_GROUP \
     --environment $CONTAINERAPPS_ENVIRONMENT \
-    --container-name credential-free-container \
+    --container-name passwordless-container \
     --user-assigned ${CONTAINERAPPS_NAME} \
     --registry-server $ACR_NAME.azurecr.io \
-    --image $ACR_NAME.azurecr.io/spring-credential-free:0.0.1-SNAPSHOT \
+    --image $ACR_NAME.azurecr.io/spring-passwordless:0.0.1-SNAPSHOT \
     --ingress external \
     --target-port 8080 \
     --cpu 1 \
     --memory 2 \
-    --env-vars "SPRING_DATASOURCE_USERNAME=${APPSERVICE_LOGIN_NAME}@${POSTGRESQL_HOST}" "SPRING_DATASOURCE_URL=${POSTGRESQL_CONNECTION_URL}"
+    --env-vars "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"

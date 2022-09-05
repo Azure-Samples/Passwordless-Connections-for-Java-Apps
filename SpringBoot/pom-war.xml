@@ -27,11 +27,6 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
 		<!-- Required to deploy WAR on Tomcat -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -42,8 +37,8 @@
 		<!-- credential free spring starter -->
 		<dependency>
 			<groupId>com.azure.spring</groupId>
-			<artifactId>spring-cloud-azure-starter-jdbc</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<artifactId>spring-cloud-azure-starter-jdbc-postgresql</artifactId>
+			<version>4.4.0-beta.1</version>
 		</dependency>
 
 		<dependency>

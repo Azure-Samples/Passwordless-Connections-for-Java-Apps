@@ -35,8 +35,6 @@ az postgres flexible-server create \
     --tier Burstable \
     --sku-name Standard_B1ms \
     --storage-size 32 
-# create postgres server AAD admin user
-# az postgres flexible-server ad-admin create --server-name $POSTGRESQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
 # create postgres database
 az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
 
@@ -53,7 +51,8 @@ az webapp connection create postgres-flexible \
     --server $POSTGRESQL_HOST \
     --database $DATABASE_NAME \
     --client-type springboot \
-    --system-identity
+    --system-identity \
+    --debug
 
 # Build JAR file
 mvn clean package -DskipTests -f ../pom.xml
