@@ -38,11 +38,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>mysql</groupId>
-      <artifactId>mysql-connector-java</artifactId>
-      <version>${mysql-jdbc-driver}</version>
-    </dependency>
-    <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
       <version>1.0.0-beta.1</version>

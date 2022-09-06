@@ -13,14 +13,6 @@ POSTGRESQL_ADMIN_USER=azureuser
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 
-# Get current user logged in azure cli to make it postgres AAD admin
-CURRENT_USER=$(az account show --query user.name -o tsv)
-CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
-
-CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
-# APPSERVICE_LOGIN_NAME=${APPSERVICE_NAME}'@'${CURRENT_USER_DOMAIN}
-APPSERVICE_LOGIN_NAME='checklistapp'
-
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
@@ -62,7 +54,6 @@ az spring connection create postgres-flexible \
     --server $POSTGRESQL_HOST \
     --database $DATABASE_NAME \
     --client-type springboot
-
 
 # Build JAR file
 mvn clean package -DskipTests -f ../pom.xml
