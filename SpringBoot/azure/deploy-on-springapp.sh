@@ -1,10 +1,6 @@
 RESOURCE_GROUP=rg-spring-springapp-passwordless
 POSTGRESQL_HOST=psql-spring-springapp-passwordless
 DATABASE_NAME=checklist
-DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
-# Note that the connection url does not includes the password-free authentication plugin
-# The configuration is injected by spring-cloud-azure-starter-jdbc
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}"
 APPSERVICE_NAME=spring-springapp-passwordless
 SPRING_APPS_SERVICE=passwordless-spring
 LOCATION=eastus
