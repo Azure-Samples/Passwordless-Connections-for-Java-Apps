@@ -5,6 +5,7 @@ In this sample, you can learn how to configure a Spring Boot application to use 
 * Azure App Service on Tomcat using WAR packaging
 * Azure App Service on Java SE using JAR packaging
 * Azure Spring Apps using JAR packaging
+* Azure Container Apps using JAR packaging
 
 ### Prerequire for this sample
 
@@ -30,13 +31,10 @@ For simplicity there are some variables defined.
 RESOURCE_GROUP=[YOUR RESOURCE GROUP]
 POSTGRESQL_HOST=[YOUR POSTGRESQL HOST] 
 DATABASE_NAME=checklist
-DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 # Note that the connection url does not includes the password-free authentication plugin
 # The configuration is injected by spring-cloud-azure-starter-jdbc
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}"
 LOCATION=[YOUR PREFERRED LOCATION]
 POSTGRESQL_ADMIN_USER=azureuser
-APPSERVICE_LOGIN_NAME='checklistapp'
 ```
 
 Depending if the hosting environment is Azure App Services or Azure Spring Apps there can be some differences.
@@ -53,6 +51,16 @@ For Azure Spring Apps:
 ```bash
 APPSERVICE_NAME=[YOUR APPLICATION NAME]
 SPRING_APPS_SERVICE=[YOUR SPRING APPS SERVICE NAME]
+```
+
+For Azure Container Apps:
+
+```bash
+# CONTAINER APPS RELATED VARIABLES
+ACR_NAME=credenialfreeacr
+CONTAINERAPPS_ENVIRONMENT=acaenv-passwordless
+CONTAINERAPPS_NAME=aca-passwordless
+CONTAINERAPPS_CONTAINERNAME=passwordless-container
 ```
 
 ### login to your subscription
@@ -275,7 +283,93 @@ az spring app deploy --name $APPSERVICE_NAME\
     --env "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
 ```
 
-### All together
+### Create Azure Container App
+
+It requires an Azure Container Registry to store the container image. The container is built from Docker file directly in Azure Container Registry. Then and deployed to Azure Container App. The system managed identity will be granted to pull images from Azure Container Registry and access to the database.
+
+#### Create Azure Container Registry
+
+First, create an Azure Container Registry to store the container image.
+
+```bash
+# create an Azure Container Registry (ACR) to hold the images for the demo
+az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION
+```
+
+#### Create Azure Container App
+
+It is necessary to register Container Apps extension on the Azure CLI. This step is only required once. If it already present in the environment it can be skipped.
+
+```bash
+# register container apps extension
+az extension add --name containerapp --upgrade
+# register Microsoft.App namespace provider
+az provider register --namespace Microsoft.App
+```
+
+Create the Azure Container App environment.
+
+```bash
+# create an azure container app environment
+az containerapp env create \
+    --name $CONTAINERAPPS_ENVIRONMENT \
+    --resource-group $RESOURCE_GROUP \
+    --location $LOCATION
+```
+
+Build the container image. To build the container it is not necessary having Docker installed in the local machine. The container image is built directly in Azure Container Registry. The pom.xml contains a profile named _buildAcr_ to build the container image. For more details on the implementation see [this article](https://techcommunity.microsoft.com/t5/fasttrack-for-azure/using-azure-container-registry-to-build-docker-images-for-java/ba-p/3563875).
+
+```bash
+# Build JAR file and push to ACR using buildAcr profile
+mvn clean package -DskipTests -PbuildAcr -DRESOURCE_GROUP=$RESOURCE_GROUP -DACR_NAME=$ACR_NAME
+```
+
+Create the Azure Container App. This step will create the container referencing the container image in the registry., see _image_ parameter. The system identity of the container app is used to pull the image, see _registry-identity_ and _system-assigned_ parameter.
+    
+```bash
+# Create the container app
+az containerapp create \
+    --name ${CONTAINERAPPS_NAME} \
+    --resource-group $RESOURCE_GROUP \
+    --environment $CONTAINERAPPS_ENVIRONMENT \
+    --container-name $CONTAINERAPPS_CONTAINERNAME \
+    --registry-identity system \
+    --system-assigned \
+    --registry-server $ACR_NAME.azurecr.io \
+    --image $ACR_NAME.azurecr.io/spring-checklist-passwordless:0.0.1-SNAPSHOT \
+    --ingress external \
+    --target-port 8080 \
+    --cpu 1 \
+    --memory 2 \
+    --env-vars "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+```
+
+Note that the environment variable _SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED_ is set to _true_ to enable the passwordless connection.
+
+At this point the application is deployed and accesible from the internet, but it doesn't work as there is no database conection configured.
+
+#### Create a service connection to the database
+
+Service connection will create a new user in the database linked to the system managed identity of the container app. The user will be granted to access to the database.
+
+The logged-in user in Azure CLI is configured as PostgreSQL Azure AD administrator.
+
+```bash
+# create service connection.
+az containerapp connection create postgres-flexible \
+    --resource-group $RESOURCE_GROUP \
+    --name $CONTAINERAPPS_NAME \
+    --container $CONTAINERAPPS_CONTAINERNAME \
+    --tg $RESOURCE_GROUP \
+    --server $POSTGRESQL_HOST \
+    --database $DATABASE_NAME \
+    --client-type springboot \
+    --system-identity
+```
+
+Now the application is running and connected to the database.
+
+## All together
 
 It is provided 3 scripts to create and deploy the environment depending on the hosting environment.
 
@@ -283,7 +377,7 @@ It is provided 3 scripts to create and deploy the environment depending on the h
 * Standalone JavaSE on App Service: [deploy-on-javase.sh](azure/deploy-on-javase.sh).
 * Azure Spring Apps: [deploy-on-springapp.sh](azure/deploy-on-springapp.sh)
 
-### Clean-up Azure resources
+## Clean-up Azure resources
 
 Just delete the resource group where all the resources were created
 
