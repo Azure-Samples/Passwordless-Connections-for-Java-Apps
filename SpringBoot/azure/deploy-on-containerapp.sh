@@ -17,14 +17,6 @@ POSTGRESQL_ADMIN_USER=azureuser
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 
-# Get current user logged in azure cli to make it postgres AAD admin
-CURRENT_USER=$(az account show --query user.name -o tsv)
-CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
-
-CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<<$CURRENT_USER)
-# APPSERVICE_LOGIN_NAME=${APPSERVICE_NAME}'@'${CURRENT_USER_DOMAIN}
-APPSERVICE_LOGIN_NAME='checklistapp'
-
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
@@ -61,10 +53,6 @@ USER_IDENTITY=$(az identity create -g $RESOURCE_GROUP -n $CONTAINERAPPS_NAME --l
 ACR_RESOURCEID=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query "id" --output tsv)
 az role assignment create \
     --assignee "$USER_IDENTITY" --role AcrPull --scope "$ACR_RESOURCEID"
-
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?clientid=${USER_IDENTITY}"
-
-
 
 # Build JAR file and push to ACR using buildAcr profile
 mvn clean package -DskipTests -PbuildAcr -DRESOURCE_GROUP=$RESOURCE_GROUP -DACR_NAME=$ACR_NAME

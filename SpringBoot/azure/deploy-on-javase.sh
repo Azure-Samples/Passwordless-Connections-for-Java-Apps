@@ -43,8 +43,7 @@ az webapp connection create postgres-flexible \
     --server $POSTGRESQL_HOST \
     --database $DATABASE_NAME \
     --client-type springboot \
-    --system-identity \
-    --debug
+    --system-identity 
 
 # Build JAR file
 mvn clean package -DskipTests -f ../pom.xml
