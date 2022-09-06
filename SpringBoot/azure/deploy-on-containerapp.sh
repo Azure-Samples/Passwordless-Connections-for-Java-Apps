@@ -35,7 +35,7 @@ az postgres flexible-server create \
 az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
 
 # create an Azure Container Registry (ACR) to hold the images for the demo
-az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION --admin-enabled true
+az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION # --admin-enabled true
 
 # register container apps extension
 az extension add --name containerapp --upgrade
@@ -49,10 +49,11 @@ az containerapp env create \
 
 # Create a user managed identity and assign AcrPull role on the ACR. By creating an user managed identity it is possible to assign AcrPull role before starting the deployment
 # the same user manage identity is granted to access to the database
-USER_IDENTITY=$(az identity create -g $RESOURCE_GROUP -n $CONTAINERAPPS_NAME --location $LOCATION --query clientId -o tsv)
-ACR_RESOURCEID=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query "id" --output tsv)
-az role assignment create \
-    --assignee "$USER_IDENTITY" --role AcrPull --scope "$ACR_RESOURCEID"
+# USER_IDENTITY=$(az identity create -g $RESOURCE_GROUP -n $CONTAINERAPPS_NAME --location $LOCATION --query clientId -o tsv)
+# ACR_RESOURCEID=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query "id" --output tsv)
+# az role assignment create \
+#     --assignee "$USER_IDENTITY" --role AcrPull --scope "$ACR_RESOURCEID"
+# USER_IDENTITY_ID=$(az identity show -g $RESOURCE_GROUP -n $CONTAINERAPPS_NAME --query id -o tsv)
 
 # Build JAR file and push to ACR using buildAcr profile
 mvn clean package -DskipTests -PbuildAcr -DRESOURCE_GROUP=$RESOURCE_GROUP -DACR_NAME=$ACR_NAME
@@ -63,7 +64,8 @@ az containerapp create \
     --resource-group $RESOURCE_GROUP \
     --environment $CONTAINERAPPS_ENVIRONMENT \
     --container-name $CONTAINERAPPS_CONTAINERNAME \
-    --user-assigned ${CONTAINERAPPS_NAME} \
+    --registry-identity system \
+    --system-assigned \
     --registry-server $ACR_NAME.azurecr.io \
     --image $ACR_NAME.azurecr.io/spring-checklist-passwordless:0.0.1-SNAPSHOT \
     --ingress external \
