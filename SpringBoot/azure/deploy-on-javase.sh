@@ -13,14 +13,6 @@ POSTGRESQL_ADMIN_USER=azureuser
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 
-# Get current user logged in azure cli to make it postgres AAD admin
-CURRENT_USER=$(az account show --query user.name -o tsv)
-CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
-
-CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
-# APPSERVICE_LOGIN_NAME=${APPSERVICE_NAME}'@'${CURRENT_USER_DOMAIN}
-APPSERVICE_LOGIN_NAME='checklistapp'
-
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
@@ -41,7 +33,7 @@ az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d 
 # Create app service plan
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku B1 --is-linux
 # Create application service
-az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:8-jre8" # --assign-identity [system]
+az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:8-jre8"
 
 # create service connection. 
 az webapp connection create postgres-flexible \
@@ -51,14 +43,13 @@ az webapp connection create postgres-flexible \
     --server $POSTGRESQL_HOST \
     --database $DATABASE_NAME \
     --client-type springboot \
-    --system-identity \
-    --debug
+    --system-identity 
 
 # Build JAR file
 mvn clean package -DskipTests -f ../pom.xml
 
-# 6. Set environment variables for the web application pointing to the database and using the appservice identity login
+# Set environment variables for the web application pointing to the database and using the appservice identity login
 az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
 
-# 7. Create webapp deployment
+# Create webapp deployment
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path ../target/app.jar --type jar
