@@ -1,54 +1,42 @@
-# Project Name
+# Passwordless Connections Samples for Java Apps
 
-(short, 1-3 sentenced, description of the project)
+This project contains sample code for connecting to PostgreSQL and MySQL from the most popular Java frameworks and Azure hosting environments using Azure AD authentication with no need to manage passwords.
 
-## Features
+## Samples
 
-This project framework provides the following features:
+This project provides the following samples for the following frameworks and Azure hosting environments:
 
-* Feature 1
-* Feature 2
-* ...
+* [SpringBoot](SpringBoot/README.md):
+  * Java SE on Azure App Service
+  * Tomcat on Azure App Service
+  * Azure Spring Apps.
+  * Azure Container Apps
+* [Jakara EE](JakaraEE/README.md):
+  * JBoss EAP on Azure App Service.
+  * WebLogic on Azure VM.
+  * WebSphere on Azure VM.
+* Quarkus
+  * Quarkus on Azure Container Apps.
 
 ## Getting Started
 
 ### Prerequisites
 
-(ideally very short, if any)
+All samples are written in Java 8 and require the following;
 
-- OS
-- Library version
-- ...
+- Java 8+.
+- Maven
+- Azure CLI
+- GIT
+- An azure subscription.
+- PSQL or MYSQL client for some examples.
+- pwgen (optional) for generating passwords in some examples.
 
-### Installation
-
-(ideally very short)
-
-- npm install [package name]
-- mvn install
-- ...
-
-### Quickstart
-(Add steps to get up and running quickly)
-
-1. git clone [repository clone url]
-2. cd [repository name]
-3. ...
-
-
-## Demo
-
-A demo app is included to show how to use the project.
-
-To run the demo, follow these steps:
-
-(Add steps to start up the demo)
-
-1.
-2.
-3.
+The scripts delivered assume bash shell and were tested on Ubuntu 20.04 on WLS2. Other OSes may require some modifications or tools to be installed.
 
 ## Resources
+
+TODO
 
 (Any additional resources or related projects)
 
