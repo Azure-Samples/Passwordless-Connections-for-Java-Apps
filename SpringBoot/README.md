@@ -7,7 +7,9 @@ In this sample, you can learn how to configure a Spring Boot application to use 
 * Azure Spring Apps using JAR packaging
 * Azure Container Apps using JAR packaging
 
-### Prerequire for this sample
+
+
+## Prerequire for this sample
 
 * Java SE 8 (or 11)
 * Azure CLI command
@@ -22,7 +24,7 @@ All samples were developed and tested using Visual Studio Code on WSL2 (Windows 
 
 If you want to go on the details of code please read the [README_CODE.md](README_CODE.md) file.
 
-## Azure Setup
+# Azure Setup
 
 The following steps are required to setup an Azure Database for PostgreSQL and configure the application to access a database using a managed identity. All the steps can be performed in Azure CLI
 For simplicity there are some variables defined.
@@ -63,20 +65,20 @@ CONTAINERAPPS_NAME=aca-passwordless
 CONTAINERAPPS_CONTAINERNAME=passwordless-container
 ```
 
-### login to your subscription
+## login to your subscription
 
 ```bash
 az login
 ```
 
-### create a resource group
+## create a resource group
 
 ```bash
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 ```
 
-### Create PostgreSQL server
+## Create PostgreSQL server
 
 It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
 
@@ -105,11 +107,11 @@ Create a database for the application
 az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
 ```
 
-### Create the hosting environment
+## Create the hosting environment
 
 As mentioned above, the hosting environment can be Azure App Services or Azure Spring Apps.
 
-#### Create application service
+### Create application service
 
 When deploying to Azure App Services, it can be deployed as JavaSE standalone or as a WAR file. The WAR file requires a Tomcat server to run. The JavaSE standalone is a self-contained application that includes the Tomcat server.
 
@@ -134,7 +136,7 @@ az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan
 ```
 If it is not specified, the service connection will create a System managed identity to connect to the database. 
 
-#### Service connection creation
+### Service connection creation
 The service connector will perform all required steps to connect the application to the database. It will create a System managed identity and assign the required roles to access the database.
 
 ```bash
@@ -154,7 +156,7 @@ After executing this command:
 * The PostgreSQL server is configured with an Azure AD administrator, in this case the logged-in user in Azure CLI.
 * There is a new user created in the database server corresponding to the System managed identity, and it granted to access to the database.
 
-#### Deploy the application on App Service
+### Deploy the application on App Service
 
 If the application is deployed on Tomcat it is necessary to build a war file, if deployed as JavaSE it is necessary to build a jar file. For that purpose there are two pom.xml files.
 
@@ -195,7 +197,7 @@ It can be configured as appservice configuration settings:
 az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
 ```
 
-##### Deploy on Tomcat
+#### Deploy on Tomcat
 
 ```bash
 # Build WAR file
@@ -204,7 +206,7 @@ mvn clean package -f pom-war.xml
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
 ```
 
-##### Deploy on JavaSE
+#### Deploy on JavaSE
 
 ```bash
 # Build JAR file
@@ -214,7 +216,7 @@ mvn clean package -f pom.xml
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.jar --type jar
 ```
 
-### Create Azure Spring Apps
+## Create Azure Spring Apps
 
 It only requires:
 
@@ -223,7 +225,7 @@ It only requires:
 * Create a service connection
 * Then deploy the application.
 
-#### Create Azure Spring Apps service
+### Create Azure Spring Apps service
 
 ```bash
 # Create Spring App service
@@ -233,7 +235,7 @@ az spring create --name ${SPRING_APPS_SERVICE} \
     --sku Basic
 ```
 
-#### Create an application
+### Create an application
 
 The application will be created with a public endpoint to make it accessible from the internet.
 
@@ -245,7 +247,7 @@ az spring app create --name ${APPSERVICE_NAME} \
     --assign-endpoint true 
 ```
 
-#### Create a service connection
+### Create a service connection
 
 ```bash
 # create service connection.The service connection creates the managed identity if not exists.
@@ -261,7 +263,7 @@ az spring connection create postgres-flexible \
     --client-type springboot
 ```
 
-#### Build and deploy the application
+### Build and deploy the application
 
 The application will be deployed as a jar file, so pom.xml is used. To make the application work with the Azure Spring Cloud JDBC starter, it is necessary to configure the following property:
 
@@ -283,11 +285,11 @@ az spring app deploy --name $APPSERVICE_NAME\
     --env "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
 ```
 
-### Create Azure Container App
+## Create Azure Container App
 
 It requires an Azure Container Registry to store the container image. The container is built from Docker file directly in Azure Container Registry. Then and deployed to Azure Container App. The system managed identity will be granted to pull images from Azure Container Registry and access to the database.
 
-#### Create Azure Container Registry
+### Create Azure Container Registry
 
 First, create an Azure Container Registry to store the container image.
 
@@ -296,7 +298,7 @@ First, create an Azure Container Registry to store the container image.
 az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION
 ```
 
-#### Create Azure Container App
+### Create Azure Container App
 
 It is necessary to register Container Apps extension on the Azure CLI. This step is only required once. If it already present in the environment it can be skipped.
 
@@ -348,7 +350,7 @@ Note that the environment variable _SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLE
 
 At this point the application is deployed and accesible from the internet, but it doesn't work as there is no database conection configured.
 
-#### Create a service connection to the database
+### Create a service connection to the database
 
 Service connection will create a new user in the database linked to the system managed identity of the container app. The user will be granted to access to the database.
 
@@ -371,11 +373,12 @@ Now the application is running and connected to the database.
 
 ## All together
 
-It is provided 3 scripts to create and deploy the environment depending on the hosting environment.
+It is provided 4 scripts to create and deploy the environment depending on the hosting environment.
 
 * Tomcat on App Service: [deploy-on-tomcat.sh](azure/deploy-on-tomcat.sh)
 * Standalone JavaSE on App Service: [deploy-on-javase.sh](azure/deploy-on-javase.sh).
 * Azure Spring Apps: [deploy-on-springapp.sh](azure/deploy-on-springapp.sh)
+* Azure Container Apps: [deploy-on-containerapp.sh](azure/deploy-on-containerapp.sh)
 
 ## Clean-up Azure resources
 
