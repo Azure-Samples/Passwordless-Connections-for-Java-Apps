@@ -11,7 +11,7 @@ This project provides the following samples for the following frameworks and Azu
   * Tomcat on Azure App Service
   * Azure Spring Apps.
   * Azure Container Apps
-* [Jakarta EE](JakartaEE/README.md):
+* [Jakara EE](JakaraEE/README.md):
   * JBoss EAP on Azure App Service.
   * WebLogic on Azure VM.
   * WebSphere on Azure VM.

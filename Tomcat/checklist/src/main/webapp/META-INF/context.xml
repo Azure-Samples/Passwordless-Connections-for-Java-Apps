@@ -1,0 +1,11 @@
+<Context>
+    <Resource name="jdbc/passwordless" 
+        auth="Container" 
+        type="javax.sql.DataSource"
+        driverClassName="org.postgresql.Driver"
+        url="${dbUrl}"
+        defaultAutoCommit="true"
+        maxTotal="20"
+        maxIdle="10"
+        maxWaitMillis="-1"/>
+</Context>

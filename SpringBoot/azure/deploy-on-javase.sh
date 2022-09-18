@@ -45,7 +45,7 @@ az webapp connection create postgres-flexible \
 mvn clean package -DskipTests -f ../pom.xml
 
 # Set environment variables for the web application pointing to the database and using the appservice identity login
-az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 
 # Create webapp deployment
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path ../target/app.jar --type jar
