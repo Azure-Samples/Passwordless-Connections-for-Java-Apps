@@ -64,7 +64,7 @@ az containerapp create \
     --target-port 8080 \
     --cpu 1 \
     --memory 2 \
-    --env-vars "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+    --env-vars "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 
 # create service connection.
 az containerapp connection create postgres-flexible \

@@ -1,1 +1,0 @@
-mvn clean package -DskipTests && cp target/ROOT.war ~/oracle/wls1411/user_projects/domains/base_domain/autodeploy/

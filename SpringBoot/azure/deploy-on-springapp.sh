@@ -59,4 +59,4 @@ az spring app deploy --name $APPSERVICE_NAME\
     --resource-group $RESOURCE_GROUP \
     --service $SPRING_APPS_SERVICE \
     --artifact-path ../target/app.jar \
-    --env "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+    --env "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"

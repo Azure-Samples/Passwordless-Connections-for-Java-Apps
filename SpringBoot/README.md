@@ -7,8 +7,6 @@ In this sample, you can learn how to configure a Spring Boot application to use 
 * Azure Spring Apps using JAR packaging
 * Azure Container Apps using JAR packaging
 
-
-
 ## Prerequire for this sample
 
 * Java SE 8 (or 11)
@@ -137,6 +135,7 @@ az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan
 If it is not specified, the service connection will create a System managed identity to connect to the database. 
 
 ### Service connection creation
+
 The service connector will perform all required steps to connect the application to the database. It will create a System managed identity and assign the required roles to access the database.
 
 ```bash
@@ -194,7 +193,7 @@ It can be configured as appservice configuration settings:
 
 ```bash	
 # Set environment variables to allow spring starter to enhance the database connection to use the AAD authentication plugin
-az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 ```
 
 #### Deploy on Tomcat
@@ -282,7 +281,7 @@ az spring app deploy --name $APPSERVICE_NAME\
     --resource-group $RESOURCE_GROUP \
     --service $SPRING_APPS_SERVICE \
     --artifact-path target/app.jar \
-    --env "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+    --env "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 ```
 
 ## Create Azure Container App
@@ -343,10 +342,10 @@ az containerapp create \
     --target-port 8080 \
     --cpu 1 \
     --memory 2 \
-    --env-vars "SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED=true"
+    --env-vars "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 ```
 
-Note that the environment variable _SPRING_DATASOURCE_AZURE_CREDENTIALFREEENABLED_ is set to _true_ to enable the passwordless connection.
+Note that the environment variable _SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED_ is set to _true_ to enable the passwordless connection.
 
 At this point the application is deployed and accesible from the internet, but it doesn't work as there is no database conection configured.
 
