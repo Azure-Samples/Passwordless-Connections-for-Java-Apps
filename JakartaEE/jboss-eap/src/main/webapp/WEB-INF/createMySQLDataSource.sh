@@ -5,9 +5,8 @@ sed -i -e "s|.*<resolve-parameter-values.*|<resolve-parameter-values>true</resol
 /opt/eap/bin/jboss-cli.sh --connect <<EOF
 data-source add --name=CredentialFreeDataSourceDS \
 --jndi-name=java:jboss/datasources/CredentialFreeDataSource \
---connection-url=${MYSQL_CONNECTION_URL} \
+--connection-url=${AZURE_MYSQL_CONNECTIONSTRING} \
 --driver-name=ROOT.war_com.mysql.cj.jdbc.Driver_8_0 \
---user-name=${MYSQL_USER} \
 --min-pool-size=5 \
 --max-pool-size=20 \
 --blocking-timeout-wait-millis=5000 \

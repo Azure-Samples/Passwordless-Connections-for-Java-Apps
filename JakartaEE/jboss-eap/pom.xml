@@ -37,11 +37,28 @@
       <version>${mockito-core.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- MYSQL driver is required-->
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>${mysql-jdbc-driver}</version>
+    </dependency>
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
       <version>1.0.0-beta.1</version>
-  </dependency>
+      <exclusions>
+        <exclusion>
+          <groupId>com.azure</groupId>
+          <artifactId>azure-identity</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity</artifactId>
+      <version>1.5.4</version>
+    </dependency>
   </dependencies>
   <build>
     <finalName>ROOT</finalName>

@@ -32,123 +32,125 @@ MYSQL_HOST=[your mysql server name]
 DATABASE_NAME=checklist
 DATABASE_FQDN=${MYSQL_HOST}.mysql.database.azure.com
 # Note that the connection url includes the password-free authentication plugin
-MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin"
-APPSERVICE_NAME=checklist-credential-free
-APPSERVICE_PLAN=asp-checklist-credential-free
+MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin"
+APPSERVICE_NAME=jboss-passwordless
+APPSERVICE_PLAN=asp-jboss-passwordless
 LOCATION=[your preferred location]
 MYSQL_ADMIN_USER=azureuser
 ```
+
 ### login to your subscription
+
 ```bash
 az login
 ```
+
 ### create a resource group
+
 ```bash
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 ```
+
 ### create mysql server
+
 It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
+
 ```bash
 MYSQL_ADMIN_USER=azureuser
 # Generating a random password for the MySQL user as it is mandatory
 # mysql admin won't be used as Azure AD authentication is leveraged also for administering the database
 MYSQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
-# create mysql server
-az mysql server create \
+# create mysql flexible-server
+az mysql flexible-server create \
     --name $MYSQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $MYSQL_ADMIN_USER \
     --admin-password $MYSQL_ADMIN_PASSWORD \
-    --public-network-access 0.0.0.0 \
-    --sku-name B_Gen5_1 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --storage-size 32 
 ```
-When creating mysql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current azure cli user will be configured as Azure AD administrator account.
 
-To get the current user required data:
-```bash
-CURRENT_USER=$(az account show --query user.name -o tsv)
-CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
-```
-Also note the current user domain
-```bash
-CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
-```
-Then, create the Azure AD administrator account:
-```bash
-# create mysql server AAD admin user
-az mysql server ad-admin create --server-name $MYSQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
-```
 Create a database for the application
+
 ```bash
 # create mysql database
-az mysql db create -g $RESOURCE_GROUP -s $MYSQL_HOST -n $DATABASE_NAME
+az mysql flexible-server db create -g $RESOURCE_GROUP -s $MYSQL_HOST -d $DATABASE_NAME
 ```
+
 ### Create application service
-JBoss EAP requires Premium SKU. When creating the application service, it is specified to use a system managed identity. 
-```bash
-```
+JBoss EAP requires Premium SKU. 
+
 ```bash
 # Create app service plan (premium required for JBoss EAP)
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku P1V3 --is-linux
 # Create application service
-az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JBOSSEAP:7-java8" --assign-identity [system]
+az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JBOSSEAP:7-java8"
 ```
-The authentication plugin is also compatible with User Assigned managed identity, it requires to include the clientId of the managed identity in the JDBC url as parameter _clientid_. So the connection url would be changed to the following.
-```bash
-MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=$user_assigned_identity_client_id"
-```
-For simplicity, the rest of the sample will assume system assigned managed identity.
+
 ### Service connection creation
-Service connection with managed identities is not yet supported for App Services. All required steps will be performed manually. To summarize, the steps are:
-1. Create a temporary firewall rule to allow access to the mysql server. MySQL server was configured to allow only other Azure services to access it. To allow the deployment box to perform action on MySQL it is necessary to open a connection. After all actions are performed it will be deleted.
-1. Get the App Service identity. MySQL requires the clientId/applicationId, and az webapp returns the objectId, so it is necessary to perform an additional request to Azure AD to get the clientId.
-1. Create a mysql user for the application identity and grant permissions to the database. For this action, it is necessary to connect to the database, for instance using _mysql_ client tool. The current user, an Azure AD admin configured above, will be used to connect to the database. `az account get-access-token` can be used to get an access token.
-1. Remove the temporary firewall rule.
 
-Note: The database tables will be created taking advantage of the temporary firewall rule
+Service connection is required to allow the application to access the database using the Azure AD credentials. To active Azure AD credentials on MySQL flexible server it is necessary to assign an identity. The service connection is created using the Azure CLI 
+command.
+
 ```bash
-# 0. Create a temporary firewall rule to allow connections from current machine to the mysql server
-MY_IP=$(curl http://whatismyip.akamai.com)
-az mysql server firewall-rule create --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
-# 1. Get web application managed identity
-APPSERVICE_IDENTITY_OBJID=$(az webapp show --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --query identity.principalId -o tsv)
-# 2. IMPORTANT: It is required the clientId/appId, and previous command returns object id. So next step retrieve the client id
-APPSERVICE_IDENTITY_APPID=$(az ad sp show --id $APPSERVICE_IDENTITY_OBJID --query appId -o tsv)
-# 3. Create mysql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
-RDBMS_ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" << EOF 
-SET aad_auth_validate_oids_in_tenant = OFF;
-
-DROP USER IF EXISTS '${APPSERVICE_LOGIN_NAME}'@'%';
-
-CREATE AADUSER '${APPSERVICE_LOGIN_NAME}' IDENTIFIED BY '${APPSERVICE_IDENTITY_APPID}';
-
-GRANT ALL PRIVILEGES ON ${DATABASE_NAME}.* TO '${APPSERVICE_LOGIN_NAME}'@'%';
-
-FLUSH privileges;
-EOF
-
-# 4. Create Database tables
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" < init-db.sql
-
-# 5. Remove temporary firewall rule
-az mysql server firewall-rule delete --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect
+# create managed identity for mysql. By assigning the identity to the mysql server, it will enable Azure AD authentication
+az identity create --name $APP_IDENTITY_NAME --resource-group $RESOURCE_GROUP --location $LOCATION
+IDENTITY_ID=$(az identity show --name $APP_IDENTITY_NAME --resource-group $RESOURCE_GROUP --query id -o tsv)
+# create service connection. 
+az webapp connection create mysql-flexible \
+    --resource-group $RESOURCE_GROUP \
+    --name $APPSERVICE_NAME \
+    --tg $RESOURCE_GROUP \
+    --server $MYSQL_HOST \
+    --database $DATABASE_NAME \
+    --client-type java \
+    --identity-resource-id $IDENTITY_ID \
+    --system-identity
 ```
+
+The service connection performed the following configurations:
+* Assigned a system managed identity to the application service.
+* Enabled Azure AD authentication on the MySQL server.
+* Created a user in the database corresponding to the system managed identity.
+* Created an environment variable named AZURE_MYSQL_CONNECTIONSTRING in the application service. This variable contains the connection string to access the database using the Azure AD credentials.
 
 ### Deploy the application
-The application, as it will be explained later in this README, consists of a WAR package and also an startup script. So it is necessary to deploy both.
 
-It is also necessary to pass the connection url and the login name to the application using environment variables. Note that the username includes the domain and also mysql hostname. So it will be something like `checklistapp@mydomain.com@mysupersql`
+#### Create the database schema
+
+Before deployin the application it will be created the database schema by executing the script [init-db.sql](azure/init-db.sql). To perform this action it will be used mysql client, using the Azure AD Admin account, that corresponds to the logged-in user in Azure CLI. This account has been configured by the service connector.
+
+To connect it can be necessary to create a firewall rule in the MySQL Server to allow the connection from the current IP address.
+
+To get an access token for the current user it is used `az account get-access-token` command.
 
 ```bash
-# 6. Build WAR file
-mvn clean package
-# 7. Set environment variables for the web application pointing to the database and using the appservice identity login
-APPSERVICE_LOGIN_NAME='checklistapp@'${CURRENT_USER_DOMAIN}
-az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settings MYSQL_CONNECTION_URL=${MYSQL_CONNECTION_URL} MYSQL_USER=${APPSERVICE_LOGIN_NAME}'@'${MYSQL_HOST}
-# 8. Create webapp deployment. It is deployed the war package and the startup script.
+# CREATE DATABASE SCHEMA
+# Create a temporary firewall rule to allow connections from current machine to the mysql server
+MY_IP=$(curl http://whatismyip.akamai.com)
+az mysql flexible-server firewall-rule create --resource-group $RESOURCE_GROUP --name $MYSQL_HOST --rule-name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
+
+# Create Database tables
+RDBMS_ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
+mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" < init-db.sql
+
+# Remove temporary firewall rule
+az mysql flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP --name $MYSQL_HOST --rule-name AllowCurrentMachineToConnect
+```
+
+#### Deploy the application
+
+The application, as it will be explained later in this README, consists of a WAR package and also an startup script. So it is necessary to deploy both.
+
+```bash
+# Build WAR file
+mvn clean package -DskipTests -f ../pom.xml
+
+# Deploy the WAR and the startup script to the app service
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path ../target/ROOT.war --type war
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path ../src/main/webapp/WEB-INF/createMySQLDataSource.sh --type startup
 ```
@@ -205,13 +207,15 @@ we added a dependency for MySQL JDBC driver as follows on `pom.xml`. If MySQL pr
       <version>${mysql-jdbc-driver}</version>
     </dependency>
 ```
-### 3. Add dependency for JDBC Credential-free authentication plugin
+
+### 3. Add dependency for JDBC passwordless authentication plugin for MySQL
+
 ```xml
 <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>credential-free-jdbc</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-    </dependency>
+    <groupId>com.azure</groupId>
+    <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
+    <version>1.0.0-beta.1</version>  
+</dependency>
 ```
 
 ### 4. Create a DataSource with JNDI on your Application Server with no password validation 
@@ -227,9 +231,8 @@ sed -i -e "s|.*<resolve-parameter-values.*|<resolve-parameter-values>true</resol
 /opt/eap/bin/jboss-cli.sh --connect <<EOF
 data-source add --name=CredentialFreeDataSourceDS \
 --jndi-name=java:jboss/datasources/CredentialFreeDataSource \
---connection-url=${MYSQL_CONNECTION_URL} \
+--connection-url=${AZURE_MYSQL_CONNECTIONSTRING} \
 --driver-name=ROOT.war_com.mysql.cj.jdbc.Driver_8_0 \
---user-name=${MYSQL_USER} \
 --min-pool-size=5 \
 --max-pool-size=20 \
 --blocking-timeout-wait-millis=5000 \
@@ -237,14 +240,12 @@ data-source add --name=CredentialFreeDataSourceDS \
 --driver-class=com.mysql.cj.jdbc.Driver \
 --jta=true \
 --use-java-context=true \
---validate-on-match=false \
---background-validation=false \
+--valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLValidConnectionChecker \
 --exception-sorter-class-name=com.mysql.cj.jdbc.integration.jboss.ExtendedMysqlExceptionSorter
 exit
 EOF
 ```
-As you can see, there is no _password_ parameter and _validate-on-match_ and 
-_background-validation_ are set to *false*. This is because we want to use the credential-free authentication plugin.
+As you can see, there is no _password_ parameter. This is because we are going to use the Azure Identity plugin to authenticate to the MySQL database. That is specified in the AZURE_MYSQL_CONNECTIONSTRING variable created by the service connector.
 
 ### 5. Create a persistence unit config for JPA on persistence.xml
 
@@ -375,7 +376,7 @@ public class CheckListResource {
 The checklist resource is exposed in _/checklist_ path. So you can test it by executing the following command.
 
 ```bash
-curl https://checklist-credential-free.azurewebsites.net/checklist
+curl https://jboss-passwordless.azurewebsites.net/checklist
 [{"date":"2022-03-21T00:00:00","description":"oekd list","id":1,"name":"hajshd"},{"date":"2022-03-21T00:00:00","description":"oekd list","id":2,"name":"hajshd"},{"date":"2022-03-21T00:00:00","description":"oekd list","id":3,"name":"hajshd"}]
 ```
 
