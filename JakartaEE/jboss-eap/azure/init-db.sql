@@ -4,7 +4,7 @@ use `checklist`;
 -- Table structure for table `checklist`
 --
 
-DROP TABLE IF EXISTS `checklist`;
+DROP TABLE IF EXISTS `checklist` CASCADE;
 CREATE TABLE `checklist` (
   `ID` int NOT NULL AUTO_INCREMENT,
   `name` char(35) NOT NULL DEFAULT '',
