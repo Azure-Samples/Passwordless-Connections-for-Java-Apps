@@ -40,7 +40,7 @@ public class Checklist {
 
     @Column(name = "date")
     @Temporal(TemporalType.DATE)
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd@HH:mm:ss.SSSZ")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd@HH:mm:ssZ")
     private Date date;
 
     @Column(name = "description")

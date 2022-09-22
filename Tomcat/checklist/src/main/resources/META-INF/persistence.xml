@@ -4,6 +4,11 @@
     <non-jta-data-source>java:comp/env/jdbc/passwordless</non-jta-data-source>
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect" />
+      <property name="jakarta.persistence.schema-generation.database.action" value="drop-and-create" />
+      <!-- <property name="jakarta.persistence.schema-generation.create-source" value="script" />
+      <property name="jakarta.persistence.schema-generation.create-script-source" value="META-INF/create.sql" /> -->
+      <!--<property name="jakarta.persistence.schema-generation.drop-source" value="script" />
+      <property name="jakarta.persistence.schema-generation.drop-script-source" value="META-INF/drop.sql" /> -->
     </properties>
   </persistence-unit>
 </persistence>
