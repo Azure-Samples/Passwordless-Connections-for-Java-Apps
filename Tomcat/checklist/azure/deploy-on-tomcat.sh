@@ -67,16 +67,16 @@ az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-
 
 
 #######################################################################
-az postgres flexible-server db delete -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME -y
-az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
-# create service connection. 
-az webapp connection create postgres-flexible \
-    --resource-group $RESOURCE_GROUP \
-    --name $APPSERVICE_NAME \
-    --tg $RESOURCE_GROUP \
-    --server $POSTGRESQL_HOST \
-    --database $DATABASE_NAME \
-    --client-type java \
-    --system-identity
-az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"'
-az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
+# az postgres flexible-server db delete -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME -y
+# az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
+# # create service connection. 
+# az webapp connection create postgres-flexible \
+#     --resource-group $RESOURCE_GROUP \
+#     --name $APPSERVICE_NAME \
+#     --tg $RESOURCE_GROUP \
+#     --server $POSTGRESQL_HOST \
+#     --database $DATABASE_NAME \
+#     --client-type java \
+#     --system-identity
+# az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"'
+# az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
