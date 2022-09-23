@@ -2,9 +2,9 @@
 
 In this sample, you can learn how to configure a Spring Boot application to use Azure Database for PostgreSQL using Managed Identities. This sample includes the steps to deploy the application in:
 
+* Azure Spring Apps using JAR packaging
 * Azure App Service on Tomcat using WAR packaging
 * Azure App Service on Java SE using JAR packaging
-* Azure Spring Apps using JAR packaging
 * Azure Container Apps using JAR packaging
 
 ## Prerequire for this sample
