@@ -7,14 +7,16 @@ This project contains sample code for connecting to PostgreSQL and MySQL from th
 This project provides the following samples for the following frameworks and Azure hosting environments:
 
 * [SpringBoot](SpringBoot/README.md):
+  * Azure Spring Apps.
   * Java SE on Azure App Service
   * Tomcat on Azure App Service
-  * Azure Spring Apps.
   * Azure Container Apps
 * [Jakara EE](JakaraEE/README.md):
   * JBoss EAP on Azure App Service.
   * WebLogic on Azure VM.
   * WebSphere on Azure VM.
+* [Tomcat](Tomcat/README.md):
+  * Tomcat on Azure App Service.
 * Quarkus
   * Quarkus on Azure Container Apps.
 
