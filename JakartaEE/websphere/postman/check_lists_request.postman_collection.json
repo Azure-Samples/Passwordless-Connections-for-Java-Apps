@@ -1,0 +1,125 @@
+{
+	"info": {
+		"_postman_id": "b2fa095b-5f46-4b38-bad2-e522934dee3e",
+		"name": "check lists request",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3050822"
+	},
+	"item": [
+		{
+			"name": "create checklist",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"hajshd\",\r\n    \"date\": \"2022-03-21\",\r\n    \"description\": \"oekd list\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{appUrl}}/checklist",
+					"host": [
+						"{{appUrl}}"
+					],
+					"path": [
+						"checklist"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get all lists",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{appUrl}}/checklist",
+					"host": [
+						"{{appUrl}}"
+					],
+					"path": [
+						"checklist"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add item",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"description\": \"item 3\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{appUrl}}/checklist/1/item",
+					"host": [
+						"{{appUrl}}"
+					],
+					"path": [
+						"checklist",
+						"1",
+						"item"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get a list",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{appUrl}}/checklist/1",
+					"host": [
+						"{{appUrl}}"
+					],
+					"path": [
+						"checklist",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "appUrl",
+			"value": "http://localhost:8080"
+		}
+	]
+}
