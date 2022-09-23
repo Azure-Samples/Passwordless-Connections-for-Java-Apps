@@ -1,7 +1,5 @@
 package com.azure.samples.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
