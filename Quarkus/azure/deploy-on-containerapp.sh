@@ -1,6 +1,6 @@
 RESOURCE_GROUP=rg-spring-containerapp-passwordless
 POSTGRESQL_HOST=psql-spring-containerapp-passwordless
-POSTGRESQL_DATABASE_NAME=quarkus-test
+POSTGRESQL_DATABASE_NAME=quarkustest
 POSTGRESQL_DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 # Note that the connection url does not includes the password-free authentication plugin
 # The configuration is injected by spring-cloud-azure-starter-jdbc
@@ -17,22 +17,30 @@ POSTGRESQL_ADMIN_USER=azureuser
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 
+# Get current logged-in user
+CURRENT_USER=$(az account show --query user.name -o tsv)
+CURRENT_USER_ID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
+
 # create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres flexible-server create \
+az postgres server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public-access 0.0.0.0 \
-    --tier Burstable \
-    --sku-name Standard_B1ms \
-    --storage-size 32 
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120 
+
 # create postgres database
-az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $POSTGRESQL_DATABASE_NAME
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $POSTGRESQL_DATABASE_NAME
 
 # create an Azure Container Registry (ACR) to hold the images for the demo
 az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION
@@ -65,7 +73,7 @@ az containerapp create \
     --memory 2
 
 # create service connection.
-az containerapp connection create postgres-flexible \
+az containerapp connection create postgres \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \

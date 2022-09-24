@@ -17,29 +17,33 @@ CURRENT_USER=$(az account show --query user.name -o tsv)
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres flexible-server create \
+az postgres server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
-    --admin-password $POSTGRESQL_ADMIN_PASSWORD \
-    --public-access 0.0.0.0 \
-    --tier Burstable \
-    --sku-name Standard_B1ms \
-    --storage-size 32 
+    --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120 
+
 # create postgres database
-az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $DATABASE_NAME
 
-# create a firewall rule to allow access from the current IP address
-MY_IP=$(curl http://whatismyip.akamai.com)
-az postgres flexible-server firewall-rule create --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
+# # create a firewall rule to allow access from the current IP address
+# MY_IP=$(curl http://whatismyip.akamai.com)
+# az postgres flexible-server firewall-rule create --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
 
-# create db schema
-export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER} dbname=${DATABASE_NAME} sslmode=require" < create.sql
+# # create db schema
+# export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
+# psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER} dbname=${DATABASE_NAME} sslmode=require" < create.sql
 
-# remove the firewall rule
-az postgres flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect -y
+# # remove the firewall rule
+# az postgres flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect -y
 
 # Create app service plan
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku B1 --is-linux
@@ -47,7 +51,7 @@ az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GRO
 az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "TOMCAT:10.0-java11"
 
 # create service connection. 
-az webapp connection create postgres-flexible \
+az webapp connection create postgres \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \
@@ -58,6 +62,9 @@ az webapp connection create postgres-flexible \
 
 # Build WAR file
 mvn clean package
+
+# Set connection url environment variables. It is necessary to pass it on CATALINA_OPTS environment variable
+az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"'
 
 # Create webapp deployment
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
