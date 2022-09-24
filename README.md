@@ -15,6 +15,7 @@ This project provides the following samples for the following frameworks and Azu
   * JBoss EAP on Azure App Service.
   * WebLogic on Azure VM.
   * WebSphere on Azure VM.
+* [Tomcat](Tomcat/README.md)
 * [Quarkus](Quarkus/README.md):
   * Quarkus on Azure Container Apps.
 
