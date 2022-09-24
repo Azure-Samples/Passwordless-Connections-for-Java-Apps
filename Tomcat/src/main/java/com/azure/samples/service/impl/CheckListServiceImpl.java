@@ -10,12 +10,11 @@ import com.azure.samples.repository.CheckItemRepository;
 import com.azure.samples.repository.CheckListRepository;
 import com.azure.samples.service.CheckListService;
 
-import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import jakarta.validation.Valid;
 
-@Named
+@Singleton
 public class CheckListServiceImpl implements CheckListService {
 
     @Inject

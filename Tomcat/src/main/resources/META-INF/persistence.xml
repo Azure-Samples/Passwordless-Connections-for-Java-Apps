@@ -4,6 +4,7 @@
     <non-jta-data-source>java:comp/env/jdbc/passwordless</non-jta-data-source>
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect" />
+      <property name="jakarta.persistence.schema-generation.database.action" value="create" />
     </properties>
   </persistence-unit>
 </persistence>
