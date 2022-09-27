@@ -34,13 +34,3 @@ All samples are written in Java 8 and require the following;
 - pwgen (optional) for generating passwords in some examples.
 
 The scripts delivered assume bash shell and were tested on Ubuntu 20.04 on WLS2. Other OSes may require some modifications or tools to be installed.
-
-## Resources
-
-TODO
-
-(Any additional resources or related projects)
-
-- Link to supporting information
-- Link to similar sample
-- ...
