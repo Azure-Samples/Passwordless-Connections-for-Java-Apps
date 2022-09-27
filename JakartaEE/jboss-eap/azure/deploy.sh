@@ -59,8 +59,7 @@ az webapp connection create mysql-flexible \
     --server $MYSQL_HOST \
     --database $DATABASE_NAME \
     --client-type java \
-    --identity-resource-id $IDENTITY_ID \
-    --system-identity
+    --system-identity mysql-identity-id=$IDENTITY_ID
 
 # CREATE DATABASE SCHEMA
 # Create a temporary firewall rule to allow connections from current machine to the mysql server
