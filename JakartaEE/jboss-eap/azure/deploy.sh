@@ -8,7 +8,7 @@ MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL
 APPSERVICE_NAME=jboss-passwordless
 APPSERVICE_PLAN=asp-jboss-passwordless
 APP_IDENTITY_NAME=identity-jboss-passwordless
-LOCATION=westcentralus
+LOCATION=eastus
 MYSQL_ADMIN_USER=azureuser
 # Generating a random password for the MySQL user as it is mandatory
 # mysql admin won't be used as Azure AD authentication is leveraged also for administering the database
