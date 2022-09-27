@@ -39,8 +39,8 @@ For simplicity there are some variables defined.
 ```bash
 RESOURCE_GROUP=[YOUR RESOURCE GROUP]
 LOCATION=[YOUR PREFERRED LOCATION]
-POSTGRESQL_HOST=[YOUR POSTGRESQL HOST] 
-POSTGRESQL_DATABASE_NAME=quarkustest
+export POSTGRESQL_HOST=[YOUR POSTGRESQL HOST] 
+export POSTGRESQL_DATABASE_NAME=quarkustest
 
 # CONTAINER APPS RELATED VARIABLES
 ACR_NAME=passwordlessacr
@@ -193,17 +193,6 @@ az group delete $RESOURCE_GROUP
 With the resources created in the `Azure Setup` step, you can also run the application locally.
 
 The service connection command in last step will add current signed-in user of Azure CLI as the Azure AD admin of the PostgreSQL database server. So we can use the credential of the current signed-in user to run the application locally.
-
-To connect to Azure Database for PostgreSQL requires adding a firewall rule for your local machine:
-```bash
-az postgres server firewall-rule create \
-    --resource-group $RESOURCE_GROUP \
-    --name $POSTGRESQL_HOST-database-allow-local-ip \
-    --server $POSTGRESQL_HOST \
-    --start-ip-address $(curl -4 ifconfig.co) \
-    --end-ip-address $(curl -4 ifconfig.co) \
-    --output tsv
-```
 
 First set the CURRENT_USER:
 ```bash
