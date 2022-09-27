@@ -51,7 +51,7 @@ If war packaging is selected, the Initializr will also include the following dep
 <dependency>
 	<groupId>com.azure.spring</groupId>
 	<artifactId>spring-cloud-azure-starter-jdbc-postgresql</artifactId>
-	<version>4.4.0-beta.1</version>
+	<version>4.5.0-beta.1</version>
 </dependency>
 ```
 
@@ -224,16 +224,16 @@ During the setup of the infrastructure, the current logged-in user in Azure cli 
 spring:
     datasource:
         url: jdbc:postgresql://[YOUR DATABASE HOST].postgres.database.azure.com:5432/checklist
-        username: [YOUR LOGGED IN USER]@[YOUR DATABASE HOST]
+        username: [YOUR LOGGED IN USER]
 ```
 
-For instance, if you plan to use your Azure cli user, myuser@mydomain.onmicrosoft.com, and your PostgreSQL database host is credential-free-psql. Then your application.yml file should look like this:
+For instance, if you plan to use your Azure cli user, myuser@mydomain.onmicrosoft.com, and your PostgreSQL database host is passwordless-psql. Then your application.yml file should look like this:
 
 ```yaml
 spring:
     datasource:
-        url: jdbc:postgresql://credential-free-psql.postgres.database.azure.com:5432/checklist
-        username: myuser@mydomain.onmicrosoft.com@credential-free-psql
+        url: jdbc:postgresql://passwordless-psql.postgres.database.azure.com:5432/checklist
+        username: myuser@mydomain.onmicrosoft.com
 ``` 
 
 As you can see, the username is composed by the Azure AD user and the PostgreSQL database host and it has two @ symbols.

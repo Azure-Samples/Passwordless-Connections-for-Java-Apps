@@ -34,17 +34,6 @@ az postgres db create \
     -s $POSTGRESQL_HOST \
     -n $DATABASE_NAME
 
-# # create a firewall rule to allow access from the current IP address
-# MY_IP=$(curl http://whatismyip.akamai.com)
-# az postgres flexible-server firewall-rule create --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
-
-# # create db schema
-# export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-# psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER} dbname=${DATABASE_NAME} sslmode=require" < create.sql
-
-# # remove the firewall rule
-# az postgres flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect -y
-
 # Create app service plan
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku B1 --is-linux
 # Create application service
