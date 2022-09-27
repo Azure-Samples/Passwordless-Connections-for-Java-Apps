@@ -9,13 +9,9 @@ This is a general Tomcat application that uses some technologies of Jakarta EE:
 * `CDI`
 * `JSON-B (JavaTM API for JSON Binding)`
 
-As Tomcat is just a Servlet container, it is necessary to add some libraries to the project. The libraries are:
-
-TODO: Add libraries
-
 The code details are described in [README_CODE.md](README_CODE.md).
 
-### Prerequire for this sample
+## Prerequire for this sample
 
 * Java 11+
 * Azure CLI command
@@ -28,17 +24,18 @@ The code details are described in [README_CODE.md](README_CODE.md).
 * pwgen as password generator
 
 ## Azure Setup
+
 The following steps are required to setup Azure Database for PostgreSQL and configure the application to access a database using a managed identity. All the steps can be performed in Azure CLI
 
 For simplicity there are some variables defined.
 
 ```bash
-RESOURCE_GROUP=rg-tomcat-passwordless
-POSTGRESQL_HOST=psql-tomcat-passwordless
+RESOURCE_GROUP=[YOUR RESOURCE GOUP NAME]
+POSTGRESQL_HOST=[YOUR POSTGRESQL HOST NAME]
 DATABASE_NAME=checklist
-APPSERVICE_NAME=tomcat-passwordless
-APPSERVICE_PLAN=asp-tomcat-passwordless
-LOCATION=eastus
+APPSERVICE_NAME=[YOUR APPLICATION NAME]
+APPSERVICE_PLAN=[YOUR APPLICATION PLAN NAME]
+LOCATION=[YOUR PREFERRED LOCATON]
 DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 PSQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"
 ```
@@ -58,36 +55,40 @@ az group create --name $RESOURCE_GROUP --location $LOCATION
 
 ### create Azure Database for PostgreSQL flexible server
 
-It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
+It is created with an administrator account so it is necessary to provide a user name and password. This account won't be used as it will be used the Azure AD admin account to perform the administrative tasks. The password is automatically generated with the `pwgen` command.
 
 ```bash
+
 POSTGRESQL_ADMIN_USER=azureuser
 # Generating a random password for the PostgreSQL admin user as it is mandatory
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 # create postgresql server
-az postgres flexible-server create \
+az postgres server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
-    --admin-password $POSTGRESQL_ADMIN_PASSWORD \
-    --public-access 0.0.0.0 \
-    --tier Burstable \
-    --sku-name Standard_B1ms \
-    --storage-size 32 
+    --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120 
 ```
 
 Create a database for the application
 
 ```bash
 # create postgres database
-az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $DATABASE_NAME
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $DATABASE_NAME
 ```
 
 ### Create application service
 
-The application is prepared for Tomcat 10. It cannot be deployed on Tomcat 9 as the application references jakarta.* libraries.
+The application is prepared for Tomcat 10. It cannot be deployed on Tomcat 9 as the application references jakarta.
 
 ```bash
 # Create app service plan
@@ -102,7 +103,7 @@ The service connector will perform all required steps to connect the application
 
 ```bash
 # create service connection. 
-az webapp connection create postgres-flexible \
+az webapp connection create postgres \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \
@@ -111,52 +112,25 @@ az webapp connection create postgres-flexible \
     --client-type java \
     --system-identity
 ```
+
 After executing this command:
 
 * The App Service is configured with a System managed identity
 * The PostgreSQL server is configured with an Azure AD administrator, in this case the logged-in user in Azure CLI.
 * There is a new user created in the database server corresponding to the System managed identity, and it granted to access to the database.
 
-### Create database schema 
-
-To create the database schema, it will be used the Azure AD administrator created by the service connector. The administrator is the logged-in user in Azure CLI.
-
-To get the current user in Azure CLI:
-
-```bash
-CURRENT_USER=$(az account show --query user.name -o tsv)
-```
-
-To create the schema it will be execute the [create.sql](create.sql) script. To do that it will be used the command line client psql, and prior to this it will be necessary to create a firewall rule to allow the connection from the current machine.
-
-```bash
-# get current machine IP address
-MY_IP=$(curl http://whatismyip.akamai.com)
-# create a firewall rule to allow access from the current IP address
-az postgres flexible-server firewall-rule create --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
-```
-
-Then execute the schema creation script. Note that it will be used the Azure AD authentication. To retrieve an access token it will be used the Azure CLI.
-
-Get the password and save in a psql well-known environment variable. That step is necessary as it is longer that the admitted password length.
-
-```bash
-# Get the access token and save in PGPASSWORD environment variable
-export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-# execute the script
-psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER} dbname=${DATABASE_NAME} sslmode=require" < create.sql
-```
-
-Now the firewall rule can be removed.
-
-```bash
-# remove the firewall rule
-az postgres flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP --name $POSTGRESQL_HOST --rule-name AllowCurrentMachineToConnect -y
-```
-
 ### Deploy the application
 
-As part of the configuration, the service connector defines a environment variable in the App Service, AZURE_POSTGRESQL_CONNECTIONSTRING, so no additional configurations are required.
+As part of the configuration, the service connector defines a environment variable in the App Service, AZURE_POSTGRESQL_CONNECTIONSTRING. This a generic connection string without authentication plugin, so it is necessary to enhance it with the authentication plugin and then pass to the application using CATALINA_OPTS.
+
+```bash
+# Set connection url environment variables. It is necessary to pass it on CATALINA_OPTS environment variable
+az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"'
+```
+
+Be mindful of escape quotes in the command above. The single quote are required to do not replace $AZURE_POSTGRESQL_CONNECTIONSTRING with the value of the environment variable in the local CLI. During runtime that variable will be replace with the existing value in the App Service.
+
+Finally deploy the application.
 
 ```bash
 # Build WAR file
@@ -166,9 +140,11 @@ az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-
 ```
 
 ### All together
+
 In [deploy.sh](azure/deploy.sh) script you can find all the steps required to setup the infrastructure and deploy the sample application.
 
 ### Clean-up Azure resources
+
 Just delete the resource group where all the resources were created
 ```bash
 az group delete $RESOURCE_GROUP

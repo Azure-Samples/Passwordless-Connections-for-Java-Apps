@@ -1,15 +1,13 @@
 # Access Azure Database for MySQL using Managed Identities in Azure App Service JBoss EAP
 
-In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in JBoss EAP to override some typical validations that you no longer need, such as the password validation.
+In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL.
 
 This is a general Java EE (Jakarta EE) application. In the project, we used following technologies of Java EE.
-
 
 * `JAX-RS (JavaTM API for RESTful Web Services)` 
 * `JPA (JavaTM Persistence API)`
 * `CDI`
 * `JSON-B (JavaTM API for JSON Binding)`
-
 
 ### Prerequire for this sample
 
@@ -26,6 +24,7 @@ This is a general Java EE (Jakarta EE) application. In the project, we used foll
 ## Azure Setup
 The following steps are required to setup Azure Database for MySQL and configure the application to access a database using a managed identity. All the steps can be performed in Azure CLI
 For simplicity there are some variables defined.
+
 ```bash
 RESOURCE_GROUP=[your resource group name]
 MYSQL_HOST=[your mysql server name]
@@ -33,10 +32,10 @@ DATABASE_NAME=checklist
 DATABASE_FQDN=${MYSQL_HOST}.mysql.database.azure.com
 # Note that the connection url includes the password-free authentication plugin
 MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin"
-APPSERVICE_NAME=jboss-passwordless
-APPSERVICE_PLAN=asp-jboss-passwordless
+APPSERVICE_NAME=[your app service name]
+APPSERVICE_PLAN=[your app service plan name]
+APP_IDENTITY_NAME=identity-jboss-passwordless
 LOCATION=[your preferred location]
-MYSQL_ADMIN_USER=azureuser
 ```
 
 ### login to your subscription
@@ -54,7 +53,7 @@ az group create --name $RESOURCE_GROUP --location $LOCATION
 
 ### create mysql server
 
-It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
+It is created with a mysql administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
 
 ```bash
 MYSQL_ADMIN_USER=azureuser
@@ -82,7 +81,8 @@ az mysql flexible-server db create -g $RESOURCE_GROUP -s $MYSQL_HOST -d $DATABAS
 ```
 
 ### Create application service
-JBoss EAP requires Premium SKU. 
+
+JBoss EAP requires Premium SKU.
 
 ```bash
 # Create app service plan (premium required for JBoss EAP)
@@ -116,13 +116,13 @@ The service connection performed the following configurations:
 * Assigned a system managed identity to the application service.
 * Enabled Azure AD authentication on the MySQL server.
 * Created a user in the database corresponding to the system managed identity.
-* Created an environment variable named AZURE_MYSQL_CONNECTIONSTRING in the application service. This variable contains the connection string to access the database using the Azure AD credentials.
+* Created an environment variable named AZURE_MYSQL_CONNECTIONSTRING in the application service. This variable contains the connection string without Authentication plugin parameters. It will be created a new environment variable with the authentication plugin parameters.
 
 ### Deploy the application
 
 #### Create the database schema
 
-Before deployin the application it will be created the database schema by executing the script [init-db.sql](azure/init-db.sql). To perform this action it will be used mysql client, using the Azure AD Admin account, that corresponds to the logged-in user in Azure CLI. This account has been configured by the service connector.
+Before deployinb the application it will be created the database schema by executing the script [init-db.sql](azure/init-db.sql). To perform this action it will be used mysql client, using the Azure AD Admin account, that corresponds to the logged-in user in Azure CLI. This account has been configured by the service connector.
 
 To connect it can be necessary to create a firewall rule in the MySQL Server to allow the connection from the current IP address.
 
@@ -144,7 +144,18 @@ az mysql flexible-server firewall-rule delete --resource-group $RESOURCE_GROUP -
 
 #### Deploy the application
 
-The application, as it will be explained later in this README, consists of a WAR package and also an startup script. So it is necessary to deploy both.
+The application, as it will be explained later in this README, consists of a WAR package and also an startup script. So it is necessary to deploy both. It is also required to create an environment variable with the connection string with the authentication plugin parameters, this variable will be referenced in the startup script.
+
+```bash
+# Config JDBC connection string with passwordless authentication plugin
+# Get the connection string generated by the service connector
+PASSWORDLESS_URL=$(az webapp config appsettings list --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME | jq -c '.[] | select ( .name == "AZURE_MYSQL_CONNECTIONSTRING" ) | .value' | sed 's/"//g')
+# Create a new environment variable with the connection string including the passwordless authentication plugin
+PASSWORDLESS_URL=${PASSWORDLESS_URL}'&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin'
+az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings "AZURE_MYSQL_CONNECTIONSTRING_PASSWORDLESS=${PASSWORDLESS_URL}"
+```
+
+Now the application can be deployed.
 
 ```bash
 # Build WAR file
@@ -223,6 +234,8 @@ we added a dependency for MySQL JDBC driver as follows on `pom.xml`. If MySQL pr
 In order to create a DataSource, you need to create a DataSource on your Application Server.  
 Following [createMySQLDataSource.sh](src/main/webapp/WEB-INF/createMySQLDataSource.sh) script create the DataSource on JBoss EAP with JBoss CLI command.
 
+This script references the new environment variable `AZURE_MYSQL_CONNECTIONSTRING_PASSWORDLESS` that was created in the deployment script that contains the passwordless configuration.
+
 ```bash
 #!/bin/bash
 # In order to use the variables in CLI scripts
@@ -231,7 +244,7 @@ sed -i -e "s|.*<resolve-parameter-values.*|<resolve-parameter-values>true</resol
 /opt/eap/bin/jboss-cli.sh --connect <<EOF
 data-source add --name=CredentialFreeDataSourceDS \
 --jndi-name=java:jboss/datasources/CredentialFreeDataSource \
---connection-url=${AZURE_MYSQL_CONNECTIONSTRING} \
+--connection-url=${AZURE_MYSQL_CONNECTIONSTRING_PASSWORDLESS} \
 --driver-name=ROOT.war_com.mysql.cj.jdbc.Driver_8_0 \
 --min-pool-size=5 \
 --max-pool-size=20 \
@@ -245,7 +258,6 @@ data-source add --name=CredentialFreeDataSourceDS \
 exit
 EOF
 ```
-As you can see, there is no _password_ parameter. This is because we are going to use the Azure Identity plugin to authenticate to the MySQL database. That is specified in the AZURE_MYSQL_CONNECTIONSTRING variable created by the service connector.
 
 ### 5. Create a persistence unit config for JPA on persistence.xml
 

@@ -38,7 +38,7 @@ For simplicity there are some variables defined.
 RESOURCE_GROUP=[YOUR RESOURCE GROUP]
 LOCATION=[YOUR PREFERRED LOCATION]
 POSTGRESQL_HOST=[YOUR POSTGRESQL HOST] 
-POSTGRESQL_DATABASE_NAME=quarkus_test
+POSTGRESQL_DATABASE_NAME=quarkustest
 
 # CONTAINER APPS RELATED VARIABLES
 ACR_NAME=passwordlessacr
@@ -66,24 +66,27 @@ It is created with an administrator account, but it won't be used as it wil be u
 ```bash
 POSTGRESQL_ADMIN_USER=azureuser
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
-
-az postgres flexible-server create \
+# create postgresql server
+az postgres server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
-    --admin-password $POSTGRESQL_ADMIN_PASSWORD \
-    --public-access 0.0.0.0 \
-    --tier Burstable \
-    --sku-name Standard_B1ms \
-    --storage-size 32  
+    --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120 
 ```
 > NOTE: This command will generate a random password for the PostgreSQL admin user as it is mandatory. Postgres admin won't be used as Azure AD authentication is leveraged also for administering the database.
 
 Create a database for the application:
 
 ```bash
-az postgres flexible-server db create -g $RESOURCE_GROUP -s $POSTGRESQL_HOST -d $POSTGRESQL_DATABASE_NAME
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $POSTGRESQL_DATABASE_NAME
 ```
 
 ## Create Azure Container App
@@ -154,7 +157,7 @@ The logged-in user in Azure CLI is configured as PostgreSQL Azure AD administrat
 Create the service connection:
 
 ```bash
-az containerapp connection create postgres-flexible \
+az containerapp connection create postgres \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
@@ -180,4 +183,3 @@ Just delete the resource group where all the resources were created
 ```bash
 az group delete $RESOURCE_GROUP
 ```
-
