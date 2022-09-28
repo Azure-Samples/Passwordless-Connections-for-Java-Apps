@@ -22,8 +22,13 @@ This is a general Java EE (Jakarta EE) application. In the project, we used foll
 * Bash
 * pwgen as password generator
 
+>All steps have been tested on Ubuntu 22.04.2 LTS on WSL2. Some tools or steps can differ depending on your environment.
+
 ## Azure Setup
-To deploy this samples it is necessary to deploy the first WebLogic Server on Azure and the Azure Database for MySQL. 
+
+To deploy this samples it is necessary to deploy the first WebLogic Server on Azure and the Azure Database for MySQL.
+
+To enable Azure AD authentication on Azure Database for MySQL Flexible server it is necessary assign an identity to MySQL Flexible server as described [here](https://learn.microsoft.com/azure/mysql/flexible-server/concepts-azure-ad-authentication).
 
 To be able to use Azure AD authentication in WebLogic server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the MySQL JDBC community driver.
 
@@ -50,6 +55,7 @@ When the template is started it ask for some parameters:
 ![Template parameters](./media/wls-deploy-1.png)
 
 Select the region where you want to deploy the server. In this sample only remark the following parameters:
+
 * The resource group. Take note of the name of the resource group, as the rest of resources will be deployed in the same group.
 * The Oracle WebLogic image. It is used the __WebLogic 14.1.1.0.0 with JDK8__ in Oracle Linux.
 * The authentication type to access the VM is password. Take note of the password, as it will be necessary to access the VM.
@@ -60,7 +66,7 @@ Select the region where you want to deploy the server. In this sample only remar
 Once deployed, the resource group will look like this:
 ![WebLogic resource group](./media/wls-resource-group.png)
 
-It is necessary to install MySQL Community Driver in the server and also the credential-free authentication plugin. But it will be done [later](#deploy-mysql-server-community-plugin-and-passwordless-authentication-plugin) in this document as there is not yet a MySQL server and a Managed Identity available to validate the installation.
+It is necessary to install MySQL Community Driver in the server and also the passwordless authentication plugin. But it will be done [later](#deploy-mysql-server-community-plugin-and-passwordless-authentication-plugin) in this document as there is not yet a MySQL server and a Managed Identity available to validate the installation.
 
 ### Deploy Azure Database for MySQL
 
@@ -70,8 +76,8 @@ For simplicity there are some variables defined.
 ```bash
 # For simplicity, everything is deployed in the same resource group of the VM. The resource group should exist before running this script.
 RESOURCE_GROUP=[SET HERE THE RESOURCE GROUP CREATED FOR THE VM]
-# WLS server name that should be already deployed
-VM_NAME=[SET HERE THE NAME OF THE WLS VM]
+# WLS server name that should be already deployed. The default name created by the template is adminVM
+VM_NAME=adminVM
 
 APPLICATION_NAME=checklistapp
 
@@ -79,6 +85,12 @@ MYSQL_HOST=[YOUR PREFERRED HOSTNAME OF THE MYSQL SERVER]
 DATABASE_NAME=checklist
 DATABASE_FQDN=${MYSQL_HOST}.mysql.database.azure.com
 LOCATION=[YOUR PREFERRED LOCATION]
+
+# User Managed Identity name for MySQL
+MYSQL_UMI_NAME="id-mysql-aad"
+
+# User assigned managed identity name for the application
+APPLICATION_MSI_NAME="id-${APPLICATION_NAME}"
 ```
 
 #### login to your subscription
@@ -86,6 +98,7 @@ LOCATION=[YOUR PREFERRED LOCATION]
 ```bash
 az login
 ```
+
 #### create mysql server
 
 It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
@@ -96,17 +109,31 @@ MYSQL_ADMIN_USER=azureuser
 # mysql admin won't be used as Azure AD authentication is leveraged also for administering the database
 MYSQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 # create mysql server
-az mysql server create \
+az mysql flexible-server create \
     --name $MYSQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $MYSQL_ADMIN_USER \
     --admin-password $MYSQL_ADMIN_PASSWORD \
-    --public-network-access 0.0.0.0 \
-    --sku-name B_Gen5_1 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms 
 ```
 
-When creating mysql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current azure cli user will be configured as Azure AD administrator account.
+For this example it will be necessary an Azure AD administrator and enabling Azure Authentication. The current azure cli user will be configured as Azure AD administrator account. To enable Azure Authentication it is necessary assign an identity to MySQL Flexible server.
+
+First create the managed identity and assign to MySQL server.
+
+```bash
+# create User Managed Identity for MySQL to be used for AAD authentication
+az identity create -g $RESOURCE_GROUP -n $MYSQL_UMI_NAME
+
+## assign the identity to the MySQL server
+az mysql flexible-server identity assign \
+    --server-name $MYSQL_HOST \
+    --resource-group $RESOURCE_GROUP \
+    --identity $MYSQL_UMI_NAME
+```
 
 To get the current user required data:
 
@@ -115,24 +142,26 @@ CURRENT_USER=$(az account show --query user.name -o tsv)
 CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
 ```
 
-Also note the current user domain
-
-```bash
-CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
-```
-
 Then, create the Azure AD administrator account:
 
 ```bash
 # create mysql server AAD admin user
-az mysql server ad-admin create --server-name $MYSQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
+az mysql flexible-server ad-admin create \
+    --server-name $MYSQL_HOST \
+    --resource-group $RESOURCE_GROUP \
+    --object-id $CURRENT_USER_OBJECTID \
+    --display-name $CURRENT_USER \
+    --identity $MYSQL_UMI_NAME
 ```
 
 Create a database for the application
 
 ```bash
 # create mysql database
-az mysql db create -g $RESOURCE_GROUP -s $MYSQL_HOST -n $DATABASE_NAME
+az mysql flexible-server db create \
+    -g $RESOURCE_GROUP \
+    -s $MYSQL_HOST \
+    -d $DATABASE_NAME
 ```
 
 #### Create a user defined managed identity
@@ -159,12 +188,18 @@ Note: The database tables will be created taking advantage of the temporary fire
 ```bash
 # 0. Create a temporary firewall rule to allow connections from current machine to the mysql server
 MY_IP=$(curl http://whatismyip.akamai.com)
-az mysql server firewall-rule create --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
+az mysql flexible-server firewall-rule create \
+    --resource-group $RESOURCE_GROUP \
+    --name $MYSQL_HOST \
+    --rule-name AllowCurrentMachineToConnect \
+    --start-ip-address ${MY_IP} \
+    --end-ip-address ${MY_IP}
+
 # 1. Get user defined managed clientId
 APPLICATION_IDENTITY_APPID=$(az identity show -g ${RESOURCE_GROUP} -n ${APPLICATION_MSI_NAME} --query clientId -o tsv)
 # 2. Create mysql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
 RDBMS_ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" << EOF 
+mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" <<EOF
 SET aad_auth_validate_oids_in_tenant = OFF;
 
 DROP USER IF EXISTS '${APPLICATION_LOGIN_NAME}'@'%';
@@ -177,7 +212,7 @@ FLUSH privileges;
 EOF
 
 # 3. Create Database tables
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" < init-db.sql
+mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" <init-db.sql
 
 # 4. Remove temporary firewall rule
 az mysql server firewall-rule delete --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect
@@ -190,81 +225,92 @@ In [deploy.sh](azure/deploy.sh) script you can find the previous steps required 
 
 At this point, it is possible deploy the required components in WebLogic and creating a Data Source in WebLogic server using the managed identity.
 
-*Note: Most of the steps to deploy the MySQL Community Driver are extracted from the excellent LinkedIn Learning course [Java EE: Application Servers](https://www.linkedin.com/learning/java-ee-application-servers/)*
+To make it possible it is necessary to deploy the required libraries in the server and make it accessible to WebLogic. To perform this task it will updated PRE_CLASSPATH in setDomainEnv.sh script by adding the path to MySQL JDBC community driver and the authentication plugin. The authentication plugin has many dependencies that should be included in this process. It will look similar to this:
 
-#### Download MySQL community plugin
+```bash
+PRE_CLASSPATH=pathToJDBC:pathToPlugin:pathToDependencies
+export PRE_CLASSPATH
+```
 
-Download the MySQL community plugin from [here](https://dev.mysql.com/downloads/connector/j/). For this sample it was used the platform independent version.
+As this is an error prone process due to the amount of dependencies of the authentication plugin, it is described some tricks to automate the process.
 
-You can open a ssh session on WLS Server VM and run the following commands:
+#### Prepare the libraries
+
+In this repository you may find a special [project](../deps-trick/README.md) that can be used just to prepare the libraries. It is a Maven project that will download the required libraries. To use it open the pom.xml file and verify it contains the dependency `com.azure:azure-identity-providers-jdbc-mysql:1.0.0-beta.1`.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.microsoft.azure.samples</groupId>
+  <artifactId>deps-trick</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <properties>
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
+      <version>1.0.0-beta.1</version>
+    </dependency>    
+  </dependencies>
+</project>
+```
+
+Then just run:
+
+```bash
+mvn depedency:copy-dependencies
+```
+
+That will copy all the required libraries in the target directory under dependency folder.
+
+![Libraries](media/dependency-folder.png)
+
+The dependencies also include the MySQL JDBC driver.
+
+Now it is time to copy the libraries on WLS Server. You can open an ssh session to create a folder and then copy the libraries. 
+
+Once initiated a ssh session on the server, create a folder to store the libraries. For instance:
 
 ```bash
 mkdir libs
-cd libs
-wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.30.tar.gz
-tar -xf mysql-connector-java-8.0.30.tar.gz
 ```
-
-![mysql connector files](./media/wls-prepare-mysql-1.png)
-
-The last command extracted the content of the tar file into mysql-connector-java-8.0.30 folder. That folder contains the MySQL community plugin jar file among other files. As only the jar file will be required, it is possible to move it to libs folder and remove the rest of the files and folders.
+Copy the credential free authentication plugin to the WLS Server VM, so in your local machine run:
 
 ```bash
-mv mysql-connector-java-8.0.30/mysql-connector-java-8.0.30.jar .
-rm -rf mysql-connector-java-8.0.30
-rm mysql-connector-java-8.0.30.tar.gz
+scp <rootfolder>/JakartaEE/deps-trick/target/dependency/*.jar weblogic@<wls-server-address>:/home/weblogic/libs
 ```
 
-At this point, only the MySQL community plugin jar file should be in libs folder.
+Now all required libraries are in WLS VM, in /home/weblogic/libs folder.
 
-#### Copy the credential free authentication plugin to the WLS Server VM
-
-TODO: THIS SECTION NEEDs TO BE UPDATED WITH LAST VERSION OF THE PLUGIN. Will be described assuming the current home made version of the plugin.
-
-Copy the shade version of the authentication plugin jar file to the WLS Server VM, in libs folder. You can use scp for that purpose.
-
-```bash
-scp credential-free-jdbc-0.0.1-SNAPSHOT.jar weblogic@<wls-server-address>:/home/weblogic/libs
-```
-
-Now both the MySQL community plugin and the credential free authentication plugin are in the WLS Server VM, in /home/weblogic/libs folder.
-
-*Note: weblogic is the default user created by the offering template. If it was used a different parameter this path may change.*
+>Note: weblogic is the default user created by the offering template. If it was used a different parameter this path may change.*
 
 #### Install the MySQL community driver and the credential free authentication plugin
 
 The installation consists of the following steps:
 
-* Copy the MySQL community driver jar file and the credential-free authentication plugin jar file into the WebLogic modules folder. To avoid conflicts with the installed commercial version of the driver, it is necessary to move the commercial version to a different folder.
+* Create a folder under server home to store the libraries.
+* Copy the libraries to that folder.
+* Change ownership of the folder and its files to oracle:oracle.
 * Configure the WebLogic domain classpath to find the new modules. If this step is not performed, the new modules will not be found.
 
-##### Copy the MySQL community driver jar file to the WebLogic modules folder
-
-The default WebLogic server location is /u01. And the modules is located in /u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules .To perform the following action it is required elevated mode, so the first step will be to make a _sudo su_ command.
+The default WebLogic server location is /u01. As that folder is owned by _oracle_ user to perform the following actions it is required elevated mode, so the first step will be to make a _sudo su_ command.
 
 ```bash
 sudo su
 ```
 
-First move the existing version of the driver to a different folder. For this it is necessary to locate first the exact folder.
+First create a folder to contain all libraries.
 
 ```bash
-cd /u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules
-ls | grep mysql
-```
-
-The last command will return the name of the folder containing the MySQL driver. 
-![commercial mysql driver](./media/wls-prepare-mysql-3.png)
-In this case mysql-connector-java-commercial-8.0.14. So now, let's move the driver to a different folder, for instance bak_mysql-connector-java-commercial-8.0.14.
-
-```bash
-mv mysql-connector-java-commercial-8.0.14 bak_mysql-connector-java-commercial-8.0.14
-```
-
-Now copy both MySQL community driver jar file and the credential-free authentication plugin jar file to the WebLogic modules folder.
-
-```bash
-cp /home/weblogic/libs/*.jar .
+cd /u01/
+mkdir azure-mysql-passwordless
+cp /home/weblogic/libs/*.jar /u01/azure-mysql-passwordless
 ```
 
 Now it is necessary to configure the WebLogic domain classpath to find the new modules. For that purpose go the WebLogic domain folder to configure. In the case the adminDomain. The default root folder for domains created by the template is /u01/domains, then the adminDomain will be located in /u01/domains/adminDomain. Then go to the bin folder and edit the setDomainEnv.sh file. In this sample it is used nano, but you can use any text editor.
@@ -275,14 +321,31 @@ nano setDomainEnv.sh
 ```
 
 Look for WL_HOME definition and add the following lines before WL_HOME.
+
 ```
 # Set credential free dependencies in the class path
-CLASSPATH="/u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules/mysql-connector-java-8.0.30.jar:/u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules/credential-free-jdbc-0.0.1-SNAPSHOT.jar:${CLASSPATH}"
+PRE_CLASSPATH="<all files in /u01/azure-mysql-passwordless>"
+export PRE_CLASSPATH
 ```
+
+As mentioned before, this process is error prone, so it is provided simple script that prepares the classpath. To use it, copy the [prepare-classpath.sh](../deps-trick/prepare-pre.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
+
+```bash
+PRE_CLASSPATH=""
+for f in /u01/azure-mysql-passwordless/*.jar; do
+    PRE_CLASSPATH=${PRE_CLASSPATH}":"$f
+done
+echo $PRE_CLASSPATH
+```
+
+Then execute the script:
+![prepare PRE_CLASSPATH](media/wls-prepare-pre.png)
+
+Now set the PRE_CLASSPATH in the setDomainEnv.sh file.
 
 ![setDomainEnv.sh](./media/wls-setDomainEnv.png)
 
-It adds the MySQL community driver and the credential-free authentication plugin jar file to the class path.
+It adds the MySQL community driver, the passwordless authentication plugin jar file and all its dependencies to the class path.
 
 Now save the file and close it.
 
@@ -323,27 +386,25 @@ The following page can be set with the default values.
 
 ![Transaction options](./media/wls-data-source-5.png)
 
-Then in the connection properties, set the database and hostname created previously. The port should be 3306 and the user name should be the user created previously. 
+Then in the connection properties, set the database and hostname created previously. The port should be 3306 and the user name should be the user created previously.
 
-The user will look like applicationname@mydomain.onmicrosoft.com@mysqlhost.
-
-Important: Keep the password empty :)
+>Important: Keep the password empty :)
 
 ![connection properties](./media/wls-data-source-6.png)
 
 In the last screen, it is necessary to specify some additional parameters on the JDBC url. It should look like this:
 ```
-jdbc:mysql://<mysql host>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=<managed identity client id>
+jdbc:mysql://<mysqlhostname>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=<ManagedIdentityClientId>
 ```
 
 * useSSL and requireSSL are set to true. When using Azure AD authentication, the password sent is an OAuth access token. The token is sent just an encoded string that can be easily decoded. For that reason, it is necessary to enforce the use of SSL.
 * defaultAuthenticationPlugin and authenticationPlugins are a mechanism to customize the authentication process on JDBC connections. This plugin is the one registered previously in WebLogic Server and it is responsible to get an access token from the Azure AD to access the database.
-* clientid is the clientId of the Managed Identity. If no clientId is specified, the default managed identity will be the system one. In local environments it is possible to use the Azure cli logged-in user or IDE user (for Visual Studio, Visual Studio Code and IntelliJ)
+* azure.clientId is the clientId of the Managed Identity. If no azure.clientId is specified, the default managed identity will be the system one. In local environments it is possible to use the Azure cli logged-in user or IDE user (for Visual Studio, Visual Studio Code and IntelliJ)
 
 Here an example of the JDBC url:
 
 ```
-jdbc:mysql://thegreataadauthdb.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=d36a3bbf-3494-448d-807e-ee936847ad2f
+jdbc:mysql://thegreataadauthdb.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&azure.clientId=d36a3bbf-3494-448d-807e-ee936847ad2f
 ```
 
 ![Test Database](./media/wls-data-source-7.png)
