@@ -311,6 +311,7 @@ First create a folder to contain all libraries.
 cd /u01/
 mkdir azure-mysql-passwordless
 cp /home/weblogic/libs/*.jar /u01/azure-mysql-passwordless
+chown oracle:oracle /u01/azure-mysql-passwordless -R
 ```
 
 Now it is necessary to configure the WebLogic domain classpath to find the new modules. For that purpose go the WebLogic domain folder to configure. In the case the adminDomain. The default root folder for domains created by the template is /u01/domains, then the adminDomain will be located in /u01/domains/adminDomain. Then go to the bin folder and edit the setDomainEnv.sh file. In this sample it is used nano, but you can use any text editor.
