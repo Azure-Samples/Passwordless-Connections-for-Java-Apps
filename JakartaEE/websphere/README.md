@@ -1,6 +1,6 @@
-# Access Azure Database for MySQL using Managed Identities in WebLogic Server deployed on Azure
+# Access Azure Database for MySQL using Managed Identities in WebSphere deployed on Azure
 
-In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in WebLogic. It requires to deploy some modules in the server to be able to use the credential free authentication plugin.
+In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in WebSphere. It requires to deploy some modules in the server to be able to use the credential free authentication plugin.
 
 This is a general Java EE (Jakarta EE) application. In the project, we used following technologies of Java EE.
 
@@ -23,9 +23,10 @@ This is a general Java EE (Jakarta EE) application. In the project, we used foll
 * pwgen as password generator
 
 ## Azure Setup
-To deploy this samples it is necessary to deploy the first WebLogic Server on Azure and the Azure Database for MySQL. 
 
-To be able to use Azure AD authentication in WebLogic server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the MySQL JDBC community driver.
+To deploy this samples it is necessary to deploy the first WebSphere on Azure and the Azure Database for MySQL Flexible Server. 
+
+To be able to use Azure AD authentication in WebSphere server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the MySQL JDBC community driver.
 
 To deploy an application using Azure AD credentials:
 
@@ -35,14 +36,13 @@ To deploy an application using Azure AD credentials:
 * Create a Data Source in WebLogic Server, using the user defined managed identity.
 * Deploy the application in WebLogic Server, referencing the existing Data Source. It is recommended that the application doesn't deploy the Data Source, as it could impersonate another application just by knowing the managed identity clientId.
 
-### Deploy WebLogic Server
+### Deploy WebSphere
 
-This sample assumes that WebLogic Server was deployed using any of the available solutions described [here](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic). For this sample it was deployed using [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server).
-
-It is not the purpose of this sample to explain all the instructions for each of the available offerings. Some of the offerings don't provide the Administrator Server and may require to perform some of the steps using other tools instead of the portal as it is shown in this sample.
+This sample assumes that WebSphere  was deployed using any of the available solutions described [here](https://learn.microsoft.com/en-us/azure/developer/java/ee/websphere-family). For this sample it was deployed using _IBM WebSphere Application Server Single Instance_
 
 #### Deploy using the available templates
-As mentioned above, in this sample it is used the [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server) template. To deploy it on azure just open the following link: https://portal.azure.com/#create/oracle.20191009-arm-oraclelinux-wls-admin20191009-arm-oraclelinux-wls-admin. It will open the Azure portal.
+
+To deploy it on azure just open the following [link](https://ms.portal.azure.com/#create/ibm-usa-ny-armonk-hq-6275750-ibmcloud-aiops.2022-01-07-twas-base-single-server2022-01-07-twas-base-single-server). It will open the Azure portal.
 
 ![Oracle WebLogic Server with Admin Server](./media/wls-azure-1.png)
 

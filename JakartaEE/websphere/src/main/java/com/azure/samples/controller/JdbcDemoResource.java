@@ -11,12 +11,12 @@ import javax.naming.InitialContext;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
+import javax.sql.PooledConnection;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -42,21 +42,85 @@ public class JdbcDemoResource {
     }
 
     @GET
+    @Path("umi")
+    public String getAccessTokenUmi() {
+        TokenCredential credential = new DefaultAzureCredentialBuilder()
+                .managedIdentityClientId("83a9b025-6d22-42d3-8a71-530f40ad5d50")
+                .build();
+        TokenRequestContext request = new TokenRequestContext();
+        ArrayList<String> scopes = new ArrayList<>();
+        scopes.add("https://ossrdbms-aad.database.windows.net");
+        request.setScopes(scopes);
+        AccessToken accessToken = credential.getToken(request).block(Duration.ofSeconds(30));
+        return accessToken.getToken();
+    }
+
+    @GET
+    @Path("dsm")
+    public String getServerTimeUmiM() {
+
+        try {
+            com.mysql.cj.jdbc.MysqlConnectionPoolDataSource ds = new com.mysql.cj.jdbc.MysqlConnectionPoolDataSource();
+            ds.setUrl(
+                    "jdbc:mysql://mysql-websphere-passwordless.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=83a9b025-6d22-42d3-8a71-530f40ad5d50");
+            ds.setUser("checklistapp");
+            Connection connection = ds.createConnectionBuilder().build();
+            if (connection != null) {
+                System.out.println("Successfully connected.");
+                System.out.println(connection.isValid(10));
+                ResultSet result = connection.prepareStatement("SELECT now() as now").executeQuery();
+                if (result.next()) {
+                    return result.getString("now");
+                }
+            }
+        } catch (SQLException e) {
+            return "sql: " + e.getMessage();
+        } catch (Exception e) {
+            return "sql: " + e.getMessage();
+        }
+        return "no result?";
+    }
+
+    @GET
+    @Path("dsp")
+    public String getServerTimeUmiP() {
+
+        try {
+            org.postgresql.ds.PGConnectionPoolDataSource ds = new org.postgresql.ds.PGConnectionPoolDataSource();
+            ds.setUrl(
+                    "jdbc:postgresql://postgres-websphere-passwordless.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=83a9b025-6d22-42d3-8a71-530f40ad5d50");
+            ds.setUser("checklistapp@postgres-websphere-passwordless");
+            PooledConnection connectionPooled = ds.getPooledConnection();
+            if (connectionPooled != null) {
+                Connection connection = connectionPooled.getConnection();
+                if (connection != null) {
+                    System.out.println("Successfully connected.");
+                    System.out.println(connection.isValid(10));
+                    ResultSet result = connection.prepareStatement("SELECT now() as now").executeQuery();
+                    if (result.next()) {
+                        return result.getString("now");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            return "sql: " + e.getMessage();
+        } catch (Exception e) {
+            return "sql: " + e.getMessage();
+        }
+        return "no result?";
+    }
+
+    @GET
     public String getServerTime() {
         Connection connection;
 
         try {
             Driver mySqlDriver = new Driver();
-            // mySqlDriver.connect("jdbc:mysql://mysql-checklist-credential-free.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=6f75da39-8c15-45a2-ba60-5bc2907c4048",
-            // , Properties.)
             Properties info = new Properties();
-            info.put("user", "checklistapp@microsoft.com@mysql-checklist-credential-free");
+            info.put("user", "checklistapp");
             connection = mySqlDriver.connect(
-                    "jdbc:mysql://mysql-checklist-credential-free.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=6f75da39-8c15-45a2-ba60-5bc2907c4048",
+                    "jdbc:mysql://mysql-websphere-passwordless.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin",
                     info);
-            // connection = DriverManager.getConnection(
-            // "jdbc:mysql://mysql-checklist-credential-free.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=6f75da39-8c15-45a2-ba60-5bc2907c4048",
-            // "checklistapp@microsoft.com@mysql-checklist-credential-free", null);
 
             if (connection != null) {
                 System.out.println("Successfully connected.");

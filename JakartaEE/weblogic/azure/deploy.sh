@@ -105,7 +105,11 @@ EOF
 mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" <init-db.sql
 
 # 4. Remove temporary firewall rule
-az mysql server firewall-rule delete --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect
+az mysql flexible-server firewall-rule delete \
+    --resource-group $RESOURCE_GROUP \
+    --name $MYSQL_HOST \
+    --rule-name AllowCurrentMachineToConnect \
+    --yes
 
 # End of service connection creation
 
