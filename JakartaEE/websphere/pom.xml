@@ -41,20 +41,50 @@
     <!-- For Testing only TO BE REMOVED -->
     <dependency>
       <groupId>com.azure</groupId>
-      <artifactId>azure-identity</artifactId>
-      <version>1.5.3</version>
+      <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
+      <version>1.0.0-beta.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.azure</groupId>
+          <artifactId>azure-identity</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
+
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity-providers-jdbc-postgresql</artifactId>
+      <version>1.0.0-beta.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.azure</groupId>
+          <artifactId>azure-identity</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.5.0</version>
+    </dependency>
+
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
       <version>8.0.29</version>
     </dependency>
     <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>credential-free-jdbc</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.3</version>
     </dependency>
-    
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity</artifactId>
+      <version>1.5.4</version>
+    </dependency>
+
   </dependencies>
   <build>
     <finalName>ROOT</finalName>

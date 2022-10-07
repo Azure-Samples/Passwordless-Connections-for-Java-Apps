@@ -1,6 +1,6 @@
-# Access Azure Database for MySQL using Managed Identities in WebLogic Server deployed on Azure
+# Access Azure Database for Postgresql using Managed Identities in WebSphere deployed on Azure
 
-In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in WebLogic. It requires to deploy some modules in the server to be able to use the credential free authentication plugin.
+In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for Postgresql. You will also learn how to setup the Data source in WebSphere. It requires to deploy some modules in the server to be able to use the credential free authentication plugin.
 
 This is a general Java EE (Jakarta EE) application. In the project, we used following technologies of Java EE.
 
@@ -18,53 +18,49 @@ This is a general Java EE (Jakarta EE) application. In the project, we used foll
 * Azure Subscription
 * git command
 * Maven command
-* MySQL client command
+* Postgresql client command
 * Bash
 * pwgen as password generator
 
 ## Azure Setup
-To deploy this samples it is necessary to deploy the first WebLogic Server on Azure and the Azure Database for MySQL. 
 
-To be able to use Azure AD authentication in WebLogic server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the MySQL JDBC community driver.
+To deploy this samples it is necessary to deploy the first WebSphere on Azure and the Azure Database for Postgresql Server.
+
+To be able to use Azure AD authentication in WebSphere server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the Postgresql JDBC community driver.
 
 To deploy an application using Azure AD credentials:
 
 * Create a user defined managed identity in Azure. In this scenario, when a VM can host multiple applications, using a system assigned identity is not a good idea, as all the applications will share the same identity. For this reason, a user defined identity is recommended.
-* Assign the identity to the WebLogic Server Virtual Machine. If you run WebLogic in a cluster, you need to assign the identity to all the VMs that are part of the cluster.
-* Create a user in Azure Database for MySQL using the managed identity appId/clientId.
-* Create a Data Source in WebLogic Server, using the user defined managed identity.
-* Deploy the application in WebLogic Server, referencing the existing Data Source. It is recommended that the application doesn't deploy the Data Source, as it could impersonate another application just by knowing the managed identity clientId.
+* Assign the identity to the WebSphere Server Virtual Machine. If you run WebSphere in a cluster, you need to assign the identity to all the VMs that are part of the cluster.
+* Create a user in Azure Database for Postgresql using the managed identity appId/clientId.
+* Create a Data Source in WebSphere Server, using the user defined managed identity.
+* Deploy the application in WebSphere Server, referencing the existing Data Source. It is recommended that the application doesn't deploy the Data Source, as it could impersonate another application just by knowing the managed identity clientId.
 
-### Deploy WebLogic Server
+### Deploy WebSphere
 
-This sample assumes that WebLogic Server was deployed using any of the available solutions described [here](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic). For this sample it was deployed using [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server).
-
-It is not the purpose of this sample to explain all the instructions for each of the available offerings. Some of the offerings don't provide the Administrator Server and may require to perform some of the steps using other tools instead of the portal as it is shown in this sample.
+This sample assumes that WebSphere  was deployed using any of the available solutions described [here](https://learn.microsoft.com/en-us/azure/developer/java/ee/websphere-family). For this sample it was deployed using _IBM WebSphere Application Server Single Instance_
 
 #### Deploy using the available templates
-As mentioned above, in this sample it is used the [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server) template. To deploy it on azure just open the following link: https://portal.azure.com/#create/oracle.20191009-arm-oraclelinux-wls-admin20191009-arm-oraclelinux-wls-admin. It will open the Azure portal.
 
-![Oracle WebLogic Server with Admin Server](./media/wls-azure-1.png)
+To deploy it on azure just open the following [link](https://ms.portal.azure.com/#create/ibm-usa-ny-armonk-hq-6275750-ibmcloud-aiops.2022-01-07-twas-base-single-server2022-01-07-twas-base-single-server). It will open the Azure portal.
+
+![IBM WebSphere Server with Admin Server](./media/was-deploy-1.png)
 
 When the template is started it ask for some parameters:
-![Template parameters](./media/wls-deploy-1.png)
+![Template parameters](./media/was-deploy-2.png)
 
 Select the region where you want to deploy the server. In this sample only remark the following parameters:
 * The resource group. Take note of the name of the resource group, as the rest of resources will be deployed in the same group.
-* The Oracle WebLogic image. It is used the __WebLogic 14.1.1.0.0 with JDK8__ in Oracle Linux.
 * The authentication type to access the VM is password. Take note of the password, as it will be necessary to access the VM.
-* The WebLogic administrator credentials, as it will be necessary to access the portal to configure the Data Source and deploy the application.
+* The WebSphere administrator credentials, as it will be necessary to access the portal to configure the Data Source and deploy the application.
 
-![Deployment summary](./media/wls-deploy-summary.png)
+![Deployment summary](./media/was-deploy-summary.png)
 
-Once deployed, the resource group will look like this:
-![WebLogic resource group](./media/wls-resource-group.png)
+It is necessary to install Postgresql Driver in the server and also the passwordless authentication plugin. But it will be done [later](#deploy-postgreql-jdbc-driver-and-passwordless-authentication-plugin) in this document as there is not yet a Postgresql server and a Managed Identity available to validate the installation.
 
-It is necessary to install MySQL Community Driver in the server and also the credential-free authentication plugin. But it will be done [later](#deploy-mysql-server-community-plugin-and-credential-free-authentication-plugin) in this document as there is not yet a MySQL server and a Managed Identity available to validate the installation.
+### Deploy Azure Database for Postgresql
 
-### Deploy Azure Database for MySQL
-
-The following steps are required to setup Azure Database for MySQL and create a user defined managed identity to access a database. All the steps can be performed in Azure CLI
+The following steps are required to setup Azure Database for Postgresql and create a user defined managed identity to access a database. All the steps can be performed in Azure CLI
 For simplicity there are some variables defined.
 
 ```bash
@@ -75,9 +71,9 @@ VM_NAME=[SET HERE THE NAME OF THE WLS VM]
 
 APPLICATION_NAME=checklistapp
 
-MYSQL_HOST=[YOUR PREFERRED HOSTNAME OF THE MYSQL SERVER]
+POSTGRESQL_HOST=[YOUR PREFERRED HOSTNAME OF THE POSTGRESQL SERVER]
 DATABASE_NAME=checklist
-DATABASE_FQDN=${MYSQL_HOST}.mysql.database.azure.com
+DATABASE_FQDN=${POSTGRESQL_HOST}.postgresql.database.azure.com
 LOCATION=[YOUR PREFERRED LOCATION]
 ```
 
@@ -86,27 +82,29 @@ LOCATION=[YOUR PREFERRED LOCATION]
 ```bash
 az login
 ```
-#### create mysql server
+#### create Postgresql server
 
 It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
 
 ```bash
-MYSQL_ADMIN_USER=azureuser
-# Generating a random password for the MySQL user as it is mandatory
-# mysql admin won't be used as Azure AD authentication is leveraged also for administering the database
-MYSQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
-# create mysql server
-az mysql server create \
-    --name $MYSQL_HOST \
+POSTGRESQL_ADMIN_USER=azureuser
+# Generating a random password for the Postgresql user as it is mandatory
+# Postgresql admin won't be used as Azure AD authentication is leveraged also for administering the database
+POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
+# create postgresql server
+az postgres server create \
+    --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
-    --admin-user $MYSQL_ADMIN_USER \
-    --admin-password $MYSQL_ADMIN_PASSWORD \
-    --public-network-access 0.0.0.0 \
-    --sku-name B_Gen5_1 
+    --admin-user $POSTGRESQL_ADMIN_USER \
+    --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120
 ```
 
-When creating mysql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current azure cli user will be configured as Azure AD administrator account.
+When creating Postgresql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current azure cli user will be configured as Azure AD administrator account.
 
 To get the current user required data:
 
@@ -124,15 +122,22 @@ CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
 Then, create the Azure AD administrator account:
 
 ```bash
-# create mysql server AAD admin user
-az mysql server ad-admin create --server-name $MYSQL_HOST --resource-group $RESOURCE_GROUP --object-id $CURRENT_USER_OBJECTID --display-name $CURRENT_USER
+# create postgresql server AAD admin user
+az postgres server ad-admin create \
+    --server-name $POSTGRESQL_HOST \
+    --resource-group $RESOURCE_GROUP \
+    --object-id $CURRENT_USER_OBJECTID \
+    --display-name $CURRENT_USER
 ```
 
 Create a database for the application
 
 ```bash
-# create mysql database
-az mysql db create -g $RESOURCE_GROUP -s $MYSQL_HOST -n $DATABASE_NAME
+# create postgres database
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $DATABASE_NAME
 ```
 
 #### Create a user defined managed identity
@@ -150,219 +155,224 @@ az vm identity assign --resource-group $RESOURCE_GROUP --name $VM_NAME --identit
 
 Service connection with managed identities is not supported for Virtual Machines. All required steps will be performed manually. To summarize, the steps are:
 
-1. Create a temporary firewall rule to allow access to the mysql server. MySQL server was configured to allow only other Azure services to access it. To allow the deployment box to perform action on MySQL it is necessary to open a connection. After all actions are performed it will be deleted.
-1. Get the user identity. MySQL requires the clientId/applicationId
-1. Create a mysql user for the application identity and grant permissions to the database. For this action, it is necessary to connect to the database, for instance using _mysql_ client tool. The current user, an Azure AD admin configured above, will be used to connect to the database. `az account get-access-token` can be used to get an access token.
+1. Create a temporary firewall rule to allow access to the Postgresql server. Postgresql server was configured to allow only other Azure services to access it. To allow the deployment box to perform action on Postgresql it is necessary to open a connection. After all actions are performed it will be deleted.
+1. Get the user identity. Postgresql requires the clientId/applicationId
+1. Create a Postgresql user for the application identity and grant permissions to the database. For this action, it is necessary to connect to the database, for instance using _psql_ client tool. The current user, an Azure AD admin configured above, will be used to connect to the database. `az account get-access-token` can be used to get an access token.
 1. Remove the temporary firewall rule.
 
-Note: The database tables will be created taking advantage of the temporary firewall rule
+>Note: The database tables will be created taking advantage of the temporary firewall rule
+
 ```bash
-# 0. Create a temporary firewall rule to allow connections from current machine to the mysql server
+# 0. Create a temporary firewall rule to allow connections from current machine to the postgresql server
 MY_IP=$(curl http://whatismyip.akamai.com)
-az mysql server firewall-rule create --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect --start-ip-address ${MY_IP} --end-ip-address ${MY_IP}
+az postgres server firewall-rule create \
+    --resource-group $RESOURCE_GROUP \
+    --server-name $POSTGRESQL_HOST \
+    --name AllowCurrentMachineToConnect \
+    --start-ip-address ${MY_IP} \
+    --end-ip-address ${MY_IP}
+
 # 1. Get user defined managed clientId
 APPLICATION_IDENTITY_APPID=$(az identity show -g ${RESOURCE_GROUP} -n ${APPLICATION_MSI_NAME} --query clientId -o tsv)
-# 2. Create mysql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
-RDBMS_ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" << EOF 
-SET aad_auth_validate_oids_in_tenant = OFF;
+# 2. Note that login is performed using the current logged in user as AAD Admin and using an access token
+export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
+# 3. Create Database tables
+psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <init-db.sql
 
-DROP USER IF EXISTS '${APPLICATION_LOGIN_NAME}'@'%';
+# 3. Create psql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
+psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <<EOF
+SET aad_validate_oids_in_tenant = off;
 
-CREATE AADUSER '${APPLICATION_LOGIN_NAME}' IDENTIFIED BY '${APPLICATION_IDENTITY_APPID}';
+REVOKE ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" FROM "${APPLICATION_LOGIN_NAME}";
 
-GRANT ALL PRIVILEGES ON ${DATABASE_NAME}.* TO '${APPLICATION_LOGIN_NAME}'@'%';
+DROP USER IF EXISTS "${APPLICATION_LOGIN_NAME}";
 
-FLUSH privileges;
+CREATE ROLE "${APPLICATION_LOGIN_NAME}" WITH LOGIN PASSWORD '${APPSERVICE_IDENTITY_APPID}' IN ROLE azure_ad_user;
+
+GRANT ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" TO "${APPLICATION_LOGIN_NAME}";
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "${APPLICATION_LOGIN_NAME}";
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "${APPLICATION_LOGIN_NAME}";
+
 EOF
 
-# 3. Create Database tables
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}@${MYSQL_HOST}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" < init-db.sql
-
 # 4. Remove temporary firewall rule
-az mysql server firewall-rule delete --resource-group $RESOURCE_GROUP --server $MYSQL_HOST --name AllowCurrentMachineToConnect
+az postgres server firewall-rule delete \
+    --resource-group $RESOURCE_GROUP \
+    --server $POSTGRESQL_HOST \
+    --name AllowCurrentMachineToConnect
+```
+
+You can get the connection string by executing the following command:
+
+```bash
+POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+echo "Take note of the JDBC connection url to configure the datasource in websphere server"
+echo "JDBC connection url: $POSTGRESQL_CONNECTION_URL"
 ```
 
 #### Deployment script
+
 In [deploy.sh](azure/deploy.sh) script you can find the previous steps required to setup the Database and configure the access for the managed identity for the sample application.
 
-### Deploy MySQL Server community plugin and credential-free authentication plugin
+### Deploy Postgreql JDBC driver and passwordless authentication plugin
 
-At this point, it is possible deploy the required components in WebLogic and creating a Data Source in WebLogic server using the managed identity.
+At this point, it is possible to deploy the required components in WebSphere and creating a Data Source in WebSphere server using the managed identity.
 
-*Note: Most of the steps to deploy the MySQL Community Driver are extracted from the excellent LinkedIn Learning course [Java EE: Application Servers](https://www.linkedin.com/learning/java-ee-application-servers/)*
+#### Prepare the libraries
 
-#### Download MySQL community plugin
+To configure Postgresql JDBC driver and passwordless authentication plugin, it is necessary to download the required libraries and copy them to the WebSphere server. The authentication plugin relies on Azure.Identity libraries, which at the same time depends on other libraries and all these libraries must be copied to the WebSphere server and be configured on the class path of the JDBC provider. This process is error prone, for that reason you may find a special [project](../deps-trick/README.md) in this repository to help you with this task. This is a Maven project that will download the required libraries.
 
-Download the MySQL community plugin from [here](https://dev.mysql.com/downloads/connector/j/). For this sample it was used the platform independent version.
+As this sample targets Postgresql, open the [pom-pgsql.xml](../deps-trick/pom-pgsql.xml) and verify that it contains the dependency `com.azure:azure-identity-providers-jdbc-postgresql:1.0.0-beta.1`.
 
-You can open a ssh session on WLS Server VM and run the following commands:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.microsoft.azure.samples</groupId>
+  <artifactId>deps-trick</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <properties>
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity-providers-jdbc-postgresql</artifactId>
+      <version>1.0.0-beta.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.5.0</version>
+    </dependency>
+  </dependencies>
+</project>
+```
+
+Then just run:
+
+```bash
+mvn dependency:copy-dependencies -f pom-pgsql.xml
+```
+
+This will copy all the required libraries to `target/dependency` folder.
+
+![Dependency folder](./media/deps-folder.png)
+
+You can open a ssh session on WebSphere Server VM and run the following commands:
 
 ```bash
 mkdir libs
-cd libs
-wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.30.tar.gz
-tar -xf mysql-connector-java-8.0.30.tar.gz
 ```
 
-![mysql connector files](./media/wls-prepare-mysql-1.png)
-
-The last command extracted the content of the tar file into mysql-connector-java-8.0.30 folder. That folder contains the MySQL community plugin jar file among other files. As only the jar file will be required, it is possible to move it to libs folder and remove the rest of the files and folders.
+Copy the libraries to the `libs` folder:
 
 ```bash
-mv mysql-connector-java-8.0.30/mysql-connector-java-8.0.30.jar .
-rm -rf mysql-connector-java-8.0.30
-rm mysql-connector-java-8.0.30.tar.gz
+scp <rootfolder>/JakartaEE/deps-trick/target/dependency/*.jar websphere@<websphere-server-address>:/home/websphere/libs
 ```
 
-At this point, only the MySQL community plugin jar file should be in libs folder.
+Now all the required libraries are in the `/home/websphere/libs` folder in the WebSphere server.
 
-#### Copy the credential free authentication plugin to the WLS Server VM
+> Note: websphere is the default user created by the WebSphere offering template. If it was used a different parameter above path may be different.
 
-TODO: THIS SECTION NEEDs TO BE UPDATED WITH LAST VERSION OF THE PLUGIN. Will be described assuming the current home made version of the plugin.
+#### Install the Postgresql JDBC driver, including passwordless authentication plugin
 
-Copy the shade version of the authentication plugin jar file to the WLS Server VM, in libs folder. You can use scp for that purpose.
+The following steps will be performed in the WebSphere server administration console, that is accessible at https://<websphere-server-address>:9043/ibm/console. The address can be found in the portal on the Virtual Machine overview page.
 
-```bash
-scp credential-free-jdbc-0.0.1-SNAPSHOT.jar weblogic@<wls-server-address>:/home/weblogic/libs
-```
-
-Now both the MySQL community plugin and the credential free authentication plugin are in the WLS Server VM, in /home/weblogic/libs folder.
-
-*Note: weblogic is the default user created by the offering template. If it was used a different parameter this path may change.*
-
-#### Install the MySQL community driver and the credential free authentication plugin
+![WebSphere server overview](./media/was-vm-overview.png)
 
 The installation consists of the following steps:
 
-* Copy the MySQL community driver jar file and the credential-free authentication plugin jar file into the WebLogic modules folder. To avoid conflicts with the installed commercial version of the driver, it is necessary to move the commercial version to a different folder.
-* Configure the WebLogic domain classpath to find the new modules. If this step is not performed, the new modules will not be found.
+* Copy the Postgresql driver jar file and the passwordless authentication plugin jar files in a folder.
+* Configure a JDBC provider. It requires the file path for all libraries
 
-##### Copy the MySQL community driver jar file to the WebLogic modules folder
+##### Copy jar files
 
-The default WebLogic server location is /u01. And the modules is located in /u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules .To perform the following action it is required elevated mode, so the first step will be to make a _sudo su_ command.
+Create a folder under root /. As following steps will be executes as root, first execute _sudo su_.
 
 ```bash
 sudo su
 ```
 
-First move the existing version of the driver to a different folder. For this it is necessary to locate first the exact folder.
+Now create a folder and copy both Postgresql driver jar file and the passwordless authentication plugin jar files to the new folder.
 
 ```bash
-cd /u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules
-ls | grep mysql
+mkdir /jdbc-psql
+cp /home/websphere/libs/*.jar /jdbc-psql
 ```
 
-The last command will return the name of the folder containing the MySQL driver. 
-![commercial mysql driver](./media/wls-prepare-mysql-3.png)
-In this case mysql-connector-java-commercial-8.0.14. So now, let's move the driver to a different folder, for instance bak_mysql-connector-java-commercial-8.0.14.
+##### Configure JDBC provider
+
+Go to Resources > JDBC > JDBC Providers and click on New.
+
+In this page, configure the following:
+
+* Database type: **User-defined**
+* Implementation class name: **org.postgresql.ds.PGConnectionPoolDataSource**. This is the class name of Postgresql Datasource connection pool.
+* Name: A descriptive name for the JDBC provider. For instance _Postgresql Passwordless enabled JDBC Provider_.
+
+![New JDBC provider](./media/was-jdbc-postgres-1.png)
+
+Then click on _Next_.
+
+In this page it is necessary to configure the class path for **all** libraries. As mentioned before, this process is error prone, so it is provided simple script that prepares the classpath. To use it, copy the [prepare-cp.sh](../deps-trick/prepare-cp.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
 
 ```bash
-mv mysql-connector-java-commercial-8.0.14 bak_mysql-connector-java-commercial-8.0.14
+for f in /jdbc-psql/*.jar; do
+    echo $f
+done
 ```
 
-Now copy both MySQL community driver jar file and the credential-free authentication plugin jar file to the WebLogic modules folder.
+![prepare-cp output](./media/was-prepare-cp.png)
+Copy the output of the script and paste it in the _Class path_ field.
 
-```bash
-cp /home/weblogic/libs/*.jar .
-```
+![JDBC provider class path](./media/was-jdbc-postgres-2.png)
 
-Now it is necessary to configure the WebLogic domain classpath to find the new modules. For that purpose go the WebLogic domain folder to configure. In the case the adminDomain. The default root folder for domains created by the template is /u01/domains, then the adminDomain will be located in /u01/domains/adminDomain. Then go to the bin folder and edit the setDomainEnv.sh file. In this sample it is used nano, but you can use any text editor.
+Then click on _Next_ and _Finish_.
 
-```bash
-cd /u01/domains/adminDomain/bin
-nano setDomainEnv.sh
-```
+![JDBC provider summary](./media/was-jdbc-postgres-3.png)
 
-Look for WL_HOME definition and add the following lines before WL_HOME.
-```
-# Set credential free dependencies in the class path
-CLASSPATH="/u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules/mysql-connector-java-8.0.30.jar:/u01/app/wls/install/oracle/middleware/oracle_home/oracle_common/modules/credential-free-jdbc-0.0.1-SNAPSHOT.jar:${CLASSPATH}"
-```
+Now the JDBC is configured it is necessary to allow WebSphere load all classes. The simplest way is rebooting the server.
 
-![setDomainEnv.sh](./media/wls-setDomainEnv.png)
 
-It adds the MySQL community driver and the credential-free authentication plugin jar file to the class path.
+#### Configure the Data Source in WebSphere
 
-Now save the file and close it.
+The following steps will be performed in the WebSphere server administrator portal. It can be accessed on http://<wls-server-address>:7001/console. The address can be found in the Azure portal.
 
-To apply the changes, it is necessary to restart the WebLogic server. For simplicity, to do that the full VM will be restarted. In production systems it can be done by restarting the domain only.
+Go to Resources > JDBC > Data Sources and create a new Data Source.
 
-```bash
-reboot
-```
+![Data sources](./media/was-ds-postgres-props1.png)
 
-#### Configure the Data Source in WebLogic
+In this page configure the following:
+* Data source name: A descriptive name for the data source. For instance _Postgresql Passwordless enabled Data Source_.
+* JNDI: **jdbc/credential_free**. Important, this value should match the value in the [web.xml](./src/main/webapp/WEB-INF/web.xml) file.
 
-The following steps will be performed in the WebLogic server administrator portal. It can be accessed on http://<wls-server-address>:7001/console. The address can be found in the Azure portal.
+Then click on _Next_. Select the JDBC provider created in the previous step and click on _Next_.
 
-![VM Server DNS](./media/wls-server-dns.png)
+![Data source JDBC provider](./media/was-ds-postgres-props2.png)
 
-The credentials for the administrator were defined in the deployment template.
+The following 2 steps can be set with default values. Click on _Next_ until last step and then click on _Finish_.
 
-Go to Data Sources and create a new Data Source.
+![Data source summary](./media/was-ds-postgres-props-summary.png)
 
-![Data sources](./media/wls-data-source-1.png)
+Now it is necessary to configure the properties of the data source. Click on the data source created in the previous step and then click on _Custom Properties_.
 
-To allow updates in the domain it is necessary to click on "Lock & Edit" button.
+![Data source custom properties](./media/was-ds-postgres-custom-props.png)
 
-![Lock&Edit](./media/wls-lock-edit.png)
+Now look for _URL_ property and set `jdbc:postgresql://<your psql host>.postgres.database.azure.com:3306/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=<your managed identity client id>`, for instance `jdbc:postgresql://thegreatpsql.postgres.database.azure.com:3306/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=0f8c2e2d-60c8-4b93-8bc0-579f2d8b5a27`.
 
-Now create a new generic data source.
+![Data source URL](./media/was-ds-postgres-props-url.png)
 
-![New generic data source](./media/wls-data-source-2.png)
+And set _user_ property with the name of the account created, including postgresql host name, checklistapp@<psql host>. 
 
-Set the name of the data source to credential_free and most important, the JNDI name to jdbc/credential_free. This name will be referenced in the application to deploy. Set the database type to MySQL.
+![Data source user](./media/was-ds-postgres-props-user.png)
 
-![data source name and type](./media/wls-data-source-3.png)
+Then click on _Save_ to apply the changes. To test the connection, click on _Test Connection_.
 
-Then click next. In the following screen select the database driver. In this case select com.mysql.**cj**.jdbc.Driver.
-![mysql driver](./media/wls-data-source-4.png)
-
-The following page can be set with the default values.
-
-![Transaction options](./media/wls-data-source-5.png)
-
-Then in the connection properties, set the database and hostname created previously. The port should be 3306 and the user name should be the user created previously. 
-
-The user will look like applicationname@mydomain.onmicrosoft.com@mysqlhost.
-
-Important: Keep the password empty :)
-
-![connection properties](./media/wls-data-source-6.png)
-
-In the last screen, it is necessary to specify some additional parameters on the JDBC url. It should look like this:
-```
-jdbc:mysql://<mysql host>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=<managed identity client id>
-```
-
-* useSSL and requireSSL are set to true. When using Azure AD authentication, the password sent is an OAuth access token. The token is sent just an encoded string that can be easily decoded. For that reason, it is necessary to enforce the use of SSL.
-* defaultAuthenticationPlugin and authenticationPlugins are a mechanism to customize the authentication process on JDBC connections. This plugin is the one registered previously in WebLogic Server and it is responsible to get an access token from the Azure AD to access the database.
-* clientid is the clientId of the Managed Identity. If no clientId is specified, the default managed identity will be the system one. In local environments it is possible to use the Azure cli logged-in user or IDE user (for Visual Studio, Visual Studio Code and IntelliJ)
-
-Here an example of the JDBC url:
-
-```
-jdbc:mysql://thegreataadauthdb.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&authenticationPlugins=com.azure.jdbc.msi.extension.mysql.AzureMySqlMSIAuthenticationPlugin&clientid=d36a3bbf-3494-448d-807e-ee936847ad2f
-```
-
-![Test Database](./media/wls-data-source-7.png)
-
-And then finally test the connection by clicking on "Test Configuration" button. If everything is ok you will see a message saying "Connection test succeeded."
-
-![Connection succeded](./media/wls-data-source-8.png)
-
-Click "Next" to select the target to deploy the data source. In this case "admin".
-
-![target](./media/wls-data-source-9.png)
-
-Now click "Finish" button, and to make the data source available in the domain click on "Activate Changes" button.
-
-![Activate changes](./media/wls-data-source-10.png)
-
-A message like "All changes have been activated. No restarts are necessary" will be displayed.
-
-Now this Data Source is available to be used in the hosted applications. In the following steps will be demonstrated how to reference this data source in the application to deploy.
+![Data source test connection](./media/was-ds-postgres-test-ok.png)
 
 ### Deploy the application
 
@@ -404,61 +414,59 @@ mvn clean package
 
 It generates a WAR file that is located in the target folder.
 
-#### Deploy the application in WebLogic Server
+#### Deploy the application in WebSphere Server
 
-Open the WebLogic Server Administration Console and go to *Deployments*.
+Open the WebSphere Server Administration Console and go to *Applications > New Application*.
 
-![Deployments](./media/wls-deployments-1.png)
+Then select _New Enterprise Application_.
 
-Click on "Lock & Edit" button to start the deployment. And then on "Install" button.
+Select the war file and click _Next_.
 
-![Install](./media/wls-deployments-2.png)
+![Deploy application](./media/was-app-1.png)
 
-That starts the Install Application Assistant. There is a link that allows to upload the WAR file, click on it.
+Then select _Fast Path_ and click _Next_.
 
-![Upload](./media/wls-deployments-3.png)
+![Fast path](./media/was-app-2.png)
 
-Select the WAR file and click on "Next" button. That will upload the WAR file.
+Then follow the steps to configure the app.
 
-![Select WAR file](./media/wls-deployments-4.png)
+Step 1
 
-In the next screen click on "Next" button to continue the deployment.
+![Step 1](./media/was-app-step1.png)
 
+Step 2
 
-Then click on "Next" button to continue the deployment.
+![Step 2](./media/was-app-step2.png)
 
-In the next screen, you can choose the installation type. It can be an application or library. Select as an application and click next.
+Step 3
 
-![Select application](./media/wls-deployments-5.png)
+![Step 3](./media/was-app-step3.png)
 
-In the following page appears the optional settings. They can be left as they are. Then click "Finish" button.
+In this step is important to verify that the data source created matches the one configured in web.xml file.
 
-![Optional Settings](./media/wls-deployments-6.png)
+Step 4
 
-To commit the changes, click in "Activate Changes" button.
+![Step 4](./media/was-app-step4.png)
 
-![Activate changes](./media/wls-deployments-7.png)
+Step 5
 
-Now the application is prepared, but not yet started. To start the application go to *Control* tab, select the deployment and click on "Start" button.
+![Step 5](./media/was-app-step5.png)
 
-![Start the deployment](./media/wls-deployments-8.png)
+Step 6
 
-Then confirm by clicking on "Yes" button.
+![Step 6](./media/was-app-step6.png)
 
-![Started](./media/wls-deployments-9.png)
+Step 7
 
- And the application is started.
+![Step 7](./media/was-app-step7.png)
 
-![Started](./media/wls-deployments-10.png)
+Now click finish and the application should be deployed and it should be started. So go to Applications > Enterprise Applications and verify that the application is started.
 
-You can execute a curl command to verify the application is running:
+If not, select the application and then click _Start_.
 
-```curl -X GET http://<your server>:7001/ROOT/checklist/```
-![curl](./media/wls-curl-1.png)
+![Start application](./media/was-enterpriseapps-start.png)
 
-If the database contains no data it just returns an empty array.
-
-There is a [postman collection](./postman/check_lists_request.postman_collection.json) available to test the application.
+ Now the application should be available at `http://<yourwebserver>:9080/passwordless`. You can test the application using the [Postman collection](./postman/check_lists_request.postman_collection.json) provided.
 
 ### Clean-up Azure resources
 Just delete the resource group where all the resources were created
@@ -468,8 +476,8 @@ az group delete $RESOURCE_GROUP
 
 ## Overview of the code
 
-In this project, we will access to MySQL DB from Jakarta EE 8 Application.
-To connect to the MySQL from Java, you need implement and configure the project with following procedure.
+In this project, we will access to Postgresql DB from Jakarta EE 8 Application.
+To connect to the Postgresql from Java, you need implement and configure the project with following procedure.
 
 1. Create and Configure as a Jakarta EE 8 Project
 2. Create a reference to the existing Data Source
@@ -518,7 +526,7 @@ After reference the existing data source, it is necessary tocreate persistence u
     <exclude-unlisted-classes>false</exclude-unlisted-classes>
     <properties>
       <property name="hibernate.generate_statistics" value="true" />
-      <property name="hibernate.dialect" value="org.hibernate.dialect.MySQLDialect" />
+      <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect" />
     </properties>
   </persistence-unit>
 </persistence>
@@ -609,9 +617,8 @@ public class CheckListResource {
 The checklist resource is exposed in _/checklist_ path. So you can test it by executing the following command.
 
 ```bash
-curl http://<your weblogic address>:7001/ROOT/checklist
+curl http://<your WebSphere address>:7001/ROOT/checklist
 [{"date":"2022-03-21T00:00:00","description":"oekd list","id":1,"name":"hajshd"},{"date":"2022-03-21T00:00:00","description":"oekd list","id":2,"name":"hajshd"},{"date":"2022-03-21T00:00:00","description":"oekd list","id":3,"name":"hajshd"}]
 ```
 
 As part of this sample, it is provided a [postman collection](postman/check_lists_request.postman_collection.json) which you can use to test the RESTful API. Just change _appUrl_ variable by your Azure App Service URL.
-

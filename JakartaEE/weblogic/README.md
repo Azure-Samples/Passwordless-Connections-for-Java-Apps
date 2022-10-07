@@ -1,15 +1,13 @@
 # Access Azure Database for MySQL using Managed Identities in WebLogic Server deployed on Azure
 
-In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in WebLogic. It requires to deploy some modules in the server to be able to use the credential free authentication plugin.
+In this sample, you can learn how to configure a Jakarta EE application to use Azure AD credentials, such as Managed Identities, to access Azure Database for MySQL. You will also learn how to setup the Data source in WebLogic. It requires to deploy some modules in the server to be able to use the passwordless authentication plugin.
 
 This is a general Java EE (Jakarta EE) application. In the project, we used following technologies of Java EE.
 
-
-* `JAX-RS (JavaTM API for RESTful Web Services)` 
+* `JAX-RS (JavaTM API for RESTful Web Services)`
 * `JPA (JavaTM Persistence API)`
 * `CDI`
 * `JSON-B (JavaTM API for JSON Binding)`
-
 
 ### Prerequire for this sample
 
@@ -47,7 +45,8 @@ This sample assumes that WebLogic Server was deployed using any of the available
 It is not the purpose of this sample to explain all the instructions for each of the available offerings. Some of the offerings don't provide the Administrator Server and may require to perform some of the steps using other tools instead of the portal as it is shown in this sample.
 
 #### Deploy using the available templates
-As mentioned above, in this sample it is used the [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server) template. To deploy it on azure just open the following link: https://portal.azure.com/#create/oracle.20191009-arm-oraclelinux-wls-admin20191009-arm-oraclelinux-wls-admin. It will open the Azure portal.
+
+As mentioned above, in this sample it is used the [Oracle WebLogic Server with Admin Server](https://docs.microsoft.com/azure/virtual-machines/workloads/oracle/oracle-weblogic#oracle-weblogic-server-with-admin-server) template. To deploy it on azure just open the following link: <https://portal.azure.com/#create/oracle.20191009-arm-oraclelinux-wls-admin20191009-arm-oraclelinux-wls-admin>. It will open the Azure portal.
 
 ![Oracle WebLogic Server with Admin Server](./media/wls-azure-1.png)
 
@@ -185,6 +184,7 @@ Service connection with managed identities is not supported for Virtual Machines
 1. Remove the temporary firewall rule.
 
 Note: The database tables will be created taking advantage of the temporary firewall rule
+
 ```bash
 # 0. Create a temporary firewall rule to allow connections from current machine to the mysql server
 MY_IP=$(curl http://whatismyip.akamai.com)
@@ -219,6 +219,7 @@ az mysql server firewall-rule delete --resource-group $RESOURCE_GROUP --server $
 ```
 
 #### Deployment script
+
 In [deploy.sh](azure/deploy.sh) script you can find the previous steps required to setup the Database and configure the access for the managed identity for the sample application.
 
 ### Deploy MySQL Server community plugin and passwordless authentication plugin
@@ -236,7 +237,7 @@ As this is an error prone process due to the amount of dependencies of the authe
 
 #### Prepare the libraries
 
-In this repository you may find a special [project](../deps-trick/README.md) that can be used just to prepare the libraries. It is a Maven project that will download the required libraries. To use it open the pom.xml file and verify it contains the dependency `com.azure:azure-identity-providers-jdbc-mysql:1.0.0-beta.1`.
+In this repository you may find a special [project](../deps-trick/README.md) that can be used just to prepare the libraries. It is a Maven project that will download the required libraries. To use it open the pom.xml file and verify it contains the dependency `com.azure:azure-identity-providers-jdbc-mysql:1.0.0-beta.1` and mysql driver dependency.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -257,6 +258,11 @@ In this repository you may find a special [project](../deps-trick/README.md) tha
       <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
       <version>1.0.0-beta.1</version>
     </dependency>    
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.0.30</version>
+    </dependency>
   </dependencies>
 </project>
 ```
@@ -264,23 +270,22 @@ In this repository you may find a special [project](../deps-trick/README.md) tha
 Then just run:
 
 ```bash
-mvn depedency:copy-dependencies
+mvn dependency:copy-dependencies -f pom-mysql.xml
 ```
 
 That will copy all the required libraries in the target directory under dependency folder.
 
 ![Libraries](media/dependency-folder.png)
 
-The dependencies also include the MySQL JDBC driver.
-
-Now it is time to copy the libraries on WLS Server. You can open an ssh session to create a folder and then copy the libraries. 
+Now it is time to copy the libraries on WLS Server. You can open an ssh session to create a folder and then copy the libraries.
 
 Once initiated a ssh session on the server, create a folder to store the libraries. For instance:
 
 ```bash
 mkdir libs
 ```
-Copy the credential free authentication plugin to the WLS Server VM, so in your local machine run:
+
+Copy the passwordless authentication plugin to the WLS Server VM, so in your local machine run:
 
 ```bash
 scp <rootfolder>/JakartaEE/deps-trick/target/dependency/*.jar weblogic@<wls-server-address>:/home/weblogic/libs
@@ -290,7 +295,7 @@ Now all required libraries are in WLS VM, in /home/weblogic/libs folder.
 
 >Note: weblogic is the default user created by the offering template. If it was used a different parameter this path may change.*
 
-#### Install the MySQL community driver and the credential free authentication plugin
+#### Install the MySQL community driver and the passwordless authentication plugin
 
 The installation consists of the following steps:
 
@@ -324,12 +329,12 @@ nano setDomainEnv.sh
 Look for WL_HOME definition and add the following lines before WL_HOME.
 
 ```
-# Set credential free dependencies in the class path
+# Set passwordless dependencies in the class path
 PRE_CLASSPATH="<all files in /u01/azure-mysql-passwordless>"
 export PRE_CLASSPATH
 ```
 
-As mentioned before, this process is error prone, so it is provided simple script that prepares the classpath. To use it, copy the [prepare-classpath.sh](../deps-trick/prepare-pre.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
+As mentioned before, this process is error prone, so it is provided simple script that prepares the classpath. To use it, copy the [prepare-pre.sh](../deps-trick/prepare-pre.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
 
 ```bash
 PRE_CLASSPATH=""
@@ -380,7 +385,7 @@ Set the name of the data source to credential_free and most important, the JNDI 
 
 ![data source name and type](./media/wls-data-source-3.png)
 
-Then click next. In the following screen select the database driver. In this case select com.mysql.**cj**.jdbc.Driver.
+Then click next. In the following screen select the database driver. In this case select com.mysql.__cj__.jdbc.Driver.
 ![mysql driver](./media/wls-data-source-4.png)
 
 The following page can be set with the default values.
@@ -394,6 +399,7 @@ Then in the connection properties, set the database and hostname created previou
 ![connection properties](./media/wls-data-source-6.png)
 
 In the last screen, it is necessary to specify some additional parameters on the JDBC url. It should look like this:
+
 ```
 jdbc:mysql://<mysqlhostname>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=<ManagedIdentityClientId>
 ```
@@ -468,7 +474,7 @@ It generates a WAR file that is located in the target folder.
 
 #### Deploy the application in WebLogic Server
 
-Open the WebLogic Server Administration Console and go to *Deployments*.
+Open the WebLogic Server Administration Console and go to _Deployments_.
 
 ![Deployments](./media/wls-deployments-1.png)
 
@@ -486,7 +492,6 @@ Select the WAR file and click on "Next" button. That will upload the WAR file.
 
 In the next screen click on "Next" button to continue the deployment.
 
-
 Then click on "Next" button to continue the deployment.
 
 In the next screen, you can choose the installation type. It can be an application or library. Select as an application and click next.
@@ -501,7 +506,7 @@ To commit the changes, click in "Activate Changes" button.
 
 ![Activate changes](./media/wls-deployments-7.png)
 
-Now the application is prepared, but not yet started. To start the application go to *Control* tab, select the deployment and click on "Start" button.
+Now the application is prepared, but not yet started. To start the application go to _Control_ tab, select the deployment and click on "Start" button.
 
 ![Start the deployment](./media/wls-deployments-8.png)
 
@@ -523,7 +528,9 @@ If the database contains no data it just returns an empty array.
 There is a [postman collection](./postman/check_lists_request.postman_collection.json) available to test the application.
 
 ### Clean-up Azure resources
+
 Just delete the resource group where all the resources were created
+
 ```bash
 az group delete $RESOURCE_GROUP
 ```
@@ -568,6 +575,7 @@ Open the web.xml file and add the following lines:
 ```
 
 It means that the application assumes that the data source is already created in the hosting environment.
+
 ### 3. Create a persistence unit config for JPA on persistence.xml
 
 After reference the existing data source, it is necessary tocreate persistence unit config on [persistence.xml](src/main/resources/META-INF/persistence.xml) which is the configuration file of JPA.
@@ -637,19 +645,19 @@ public class CheckListResource {
     @Inject
     private CheckListService checkListService;
 
-	
+ 
     @GET
-	@Produces(MediaType.APPLICATION_JSON)
-	public List<Checklist> getCheckLists() {		
-		return checkListService.findAll();
-	}
+ @Produces(MediaType.APPLICATION_JSON)
+ public List<Checklist> getCheckLists() {  
+  return checkListService.findAll();
+ }
 
     @GET
-	@Path("{checklistId}")
-	@Produces(MediaType.APPLICATION_JSON)
-	public Checklist getCheckList(@PathParam(value = "checklistId") Long checklistId) {
-		return checkListService.findById(checklistId).orElseThrow(() -> new ResourceNotFoundException("checklist  " + checklistId + " not found"));
-	}
+ @Path("{checklistId}")
+ @Produces(MediaType.APPLICATION_JSON)
+ public Checklist getCheckList(@PathParam(value = "checklistId") Long checklistId) {
+  return checkListService.findById(checklistId).orElseThrow(() -> new ResourceNotFoundException("checklist  " + checklistId + " not found"));
+ }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
@@ -676,4 +684,3 @@ curl http://<your weblogic address>:7001/ROOT/checklist
 ```
 
 As part of this sample, it is provided a [postman collection](postman/check_lists_request.postman_collection.json) which you can use to test the RESTful API. Just change _appUrl_ variable by your Azure App Service URL.
-
