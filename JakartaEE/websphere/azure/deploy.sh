@@ -9,17 +9,14 @@ VM_NAME=wase01631-vm
 
 APPLICATION_NAME=checklistapp
 
-MYSQL_HOST=mysql-websphere-passwordless
+POSTGRESQL_HOST=postgres-websphere-passwordless
 DATABASE_NAME=checklist
-DATABASE_FQDN=${MYSQL_HOST}.mysql.database.azure.com
+DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 LOCATION=eastus
-MYSQL_ADMIN_USER=azureuser
-# Generating a random password for the MySQL user as it is mandatory
-# mysql admin won't be used as Azure AD authentication is leveraged also for administering the database
-MYSQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
-
-# User Managed Identity name for MySQL AAD authentication
-MYSQL_UMI_NAME="id-mysql-aad"
+POSTGRESQL_ADMIN_USER=azureuser
+# Generating a random password for Posgresql admin user as it is mandatory
+# postgresql admin won't be used as Azure AD authentication is leveraged also for administering the database
+POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 
 # As the same server may host multiple application this sample will use user defined identitiy to be used by the application
 # The datasource will be created in the application server and will be managed by the administrator, so the users cannot assign themselves other identities
@@ -29,86 +26,84 @@ MYSQL_UMI_NAME="id-mysql-aad"
 APPLICATION_MSI_NAME="id-${APPLICATION_NAME}"
 # Create user assignmed managed identity
 az identity create -g $RESOURCE_GROUP -n $APPLICATION_MSI_NAME
-# Assign the identity to the VM
+# # Assign the identity to the VM
 az vm identity assign --resource-group $RESOURCE_GROUP --name $VM_NAME --identities $APPLICATION_MSI_NAME
 # Get the identity id
 az identity show -g $RESOURCE_GROUP -n $APPLICATION_MSI_NAME --query clientId -o tsv
 
-# Get current user logged in azure cli to make it mysql AAD admin
+# Get current user logged in azure cli to make it postgresql AAD admin
 CURRENT_USER=$(az account show --query user.name -o tsv)
 CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
 
-APPLICATION_LOGIN_NAME=${APPLICATION_NAME}
+APPLICATION_LOGIN_NAME=checklistapp
 
-# create mysql server
-az mysql flexible-server create \
-    --name $MYSQL_HOST \
+# create postgresql server
+az postgres server create \
+    --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
-    --admin-user $MYSQL_ADMIN_USER \
-    --admin-password $MYSQL_ADMIN_PASSWORD \
-    --public-access 0.0.0.0 \
-    --tier Burstable \
-    --sku-name Standard_B1ms
+    --admin-user $POSTGRESQL_ADMIN_USER \
+    --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
+    --public 0.0.0.0 \
+    --sku-name GP_Gen5_2 \
+    --version 11 \
+    --storage-size 5120
 
-# create User Managed Identity for MySQL to be used for AAD authentication
-az identity create -g $RESOURCE_GROUP -n $MYSQL_UMI_NAME
+# create postgres database
+az postgres db create \
+    -g $RESOURCE_GROUP \
+    -s $POSTGRESQL_HOST \
+    -n $DATABASE_NAME
 
-## assign the identity to the MySQL server
-az mysql flexible-server identity assign \
-    --server-name $MYSQL_HOST \
-    --resource-group $RESOURCE_GROUP \
-    --identity $MYSQL_UMI_NAME
-
-# create mysql server AAD admin user
-az mysql flexible-server ad-admin create \
-    --server-name $MYSQL_HOST \
+# create postgresql server AAD admin user
+az postgres server ad-admin create \
+    --server-name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --object-id $CURRENT_USER_OBJECTID \
-    --display-name $CURRENT_USER \
-    --identity $MYSQL_UMI_NAME
-# create mysql database
-az mysql flexible-server db create \
-    -g $RESOURCE_GROUP \
-    -s $MYSQL_HOST \
-    -d $DATABASE_NAME
+    --display-name $CURRENT_USER
 
 # create service connection. Not supported VMs and managed identity
 # Creating manually:
-# 0. Create a temporary firewall rule to allow connections from current machine to the mysql server
+# 0. Create a temporary firewall rule to allow connections from current machine to the postgresql server
 MY_IP=$(curl http://whatismyip.akamai.com)
-az mysql flexible-server firewall-rule create \
+az postgres server firewall-rule create \
     --resource-group $RESOURCE_GROUP \
-    --name $MYSQL_HOST \
-    --rule-name AllowCurrentMachineToConnect \
+    --server-name $POSTGRESQL_HOST \
+    --name AllowCurrentMachineToConnect \
     --start-ip-address ${MY_IP} \
     --end-ip-address ${MY_IP}
 
 # 1. Get user defined managed clientId
 APPLICATION_IDENTITY_APPID=$(az identity show -g ${RESOURCE_GROUP} -n ${APPLICATION_MSI_NAME} --query clientId -o tsv)
-# 2. Create mysql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
-RDBMS_ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" <<EOF
-SET aad_auth_validate_oids_in_tenant = OFF;
 
-DROP USER IF EXISTS '${APPLICATION_LOGIN_NAME}'@'%';
+# 2. Note that login is performed using the current logged in user as AAD Admin and using an access token
+export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
+# 3. Create Database tables
+psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <init-db.sql
 
-CREATE AADUSER '${APPLICATION_LOGIN_NAME}' IDENTIFIED BY '${APPLICATION_IDENTITY_APPID}';
+# 3. Create psql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
+psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <<EOF
+SET aad_validate_oids_in_tenant = off;
 
-GRANT ALL PRIVILEGES ON ${DATABASE_NAME}.* TO '${APPLICATION_LOGIN_NAME}'@'%';
+REVOKE ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" FROM "${APPLICATION_LOGIN_NAME}";
 
-FLUSH privileges;
+DROP USER IF EXISTS "${APPLICATION_LOGIN_NAME}";
+
+CREATE ROLE "${APPLICATION_LOGIN_NAME}" WITH LOGIN PASSWORD '${APPLICATION_IDENTITY_APPID}' IN ROLE azure_ad_user;
+
+GRANT ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" TO "${APPLICATION_LOGIN_NAME}";
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "${APPLICATION_LOGIN_NAME}";
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "${APPLICATION_LOGIN_NAME}";
+
 EOF
 
-# 3. Create Database tables
-mysql -h "${DATABASE_FQDN}" --user "${CURRENT_USER}" --enable-cleartext-plugin --password="$RDBMS_ACCESS_TOKEN" <init-db.sql
+
 
 # 4. Remove temporary firewall rule
-az mysql flexible-server firewall-rule delete \
+az postgres server firewall-rule delete \
     --resource-group $RESOURCE_GROUP \
-    --name $MYSQL_HOST \
-    --rule-name AllowCurrentMachineToConnect \
-    --yes
+    --server $POSTGRESQL_HOST \
+    --name AllowCurrentMachineToConnect
 
 # End of service connection creation
 
@@ -117,7 +112,7 @@ mvn clean package -DskipTests -f ../pom.xml
 
 # print the jdbc url to be used by the application
 # Note that the connection url includes the password-free authentication plugin and the managed identity assigned to the VM.
-MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
 echo "Take note of the JDBC connection url to configure the datasource in websphere server"
-echo "JDBC connection url: $MYSQL_CONNECTION_URL"
+echo "JDBC connection url: $POSTGRESQL_CONNECTION_URL"
 # Datasource configuration and application deployment should be done in the application server. Steps are explained in the README.md file.
