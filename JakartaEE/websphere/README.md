@@ -622,4 +622,3 @@ curl http://<your WebSphere address>:7001/ROOT/checklist
 ```
 
 As part of this sample, it is provided a [postman collection](postman/check_lists_request.postman_collection.json) which you can use to test the RESTful API. Just change _appUrl_ variable by your Azure App Service URL.
-
