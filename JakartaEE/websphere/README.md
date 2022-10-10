@@ -24,21 +24,21 @@ This is a general Java EE (Jakarta EE) application. In the project, we used foll
 
 ## Azure Setup
 
-To deploy this samples it is necessary to deploy the first WebSphere on Azure and the Azure Database for Postgresql Server.
+To deploy this sample, it is necessary to deploy the WebSphere on Azure and the Azure Database for Postgresql Server first.
 
 To be able to use Azure AD authentication in WebSphere server it is necessary to deploy the authentication library in the server domains that will use this authentication method and also the Postgresql JDBC community driver.
 
 To deploy an application using Azure AD credentials:
 
-* Create a user defined managed identity in Azure. In this scenario, when a VM can host multiple applications, using a system assigned identity is not a good idea, as all the applications will share the same identity. For this reason, a user defined identity is recommended.
+* Create a user-assigned managed identity in Azure. In this scenario, when a VM can host multiple applications, using a system-assigned managed identity is not a good idea, as all the applications will share the same identity. For this reason, a user-assigned managed identity is recommended.
 * Assign the identity to the WebSphere Server Virtual Machine. If you run WebSphere in a cluster, you need to assign the identity to all the VMs that are part of the cluster.
-* Create a user in Azure Database for Postgresql using the managed identity appId/clientId.
-* Create a Data Source in WebSphere Server, using the user defined managed identity.
-* Deploy the application in WebSphere Server, referencing the existing Data Source. It is recommended that the application doesn't deploy the Data Source, as it could impersonate another application just by knowing the managed identity clientId.
+* Create a user in Azure Database for Postgresql using the user-assigned managed identity appId/clientId.
+* Create a Data Source in WebSphere Server, using the user-assigned managed identity.
+* Deploy the application in WebSphere Server, referencing the existing Data Source. It is recommended that the application doesn't deploy the Data Source, as it could impersonate another application just by knowing the user-assigned managed identity clientId.
 
 ### Deploy WebSphere
 
-This sample assumes that WebSphere  was deployed using any of the available solutions described [here](https://learn.microsoft.com/en-us/azure/developer/java/ee/websphere-family). For this sample it was deployed using _IBM WebSphere Application Server Single Instance_
+This sample assumes that WebSphere was deployed using WebSphere Application Server on VMs solution described [here](https://learn.microsoft.com/en-us/azure/developer/java/ee/websphere-family#websphere-application-server-on-vms). For this sample it was deployed using _IBM WebSphere Application Server Single Instance_
 
 #### Deploy using the available templates
 
@@ -46,7 +46,7 @@ To deploy it on azure just open the following [link](https://ms.portal.azure.com
 
 ![IBM WebSphere Server with Admin Server](./media/was-deploy-1.png)
 
-When the template is started it ask for some parameters:
+When the template is started it asks for some parameters:
 ![Template parameters](./media/was-deploy-2.png)
 
 Select the region where you want to deploy the server. In this sample only remark the following parameters:
@@ -56,35 +56,37 @@ Select the region where you want to deploy the server. In this sample only remar
 
 ![Deployment summary](./media/was-deploy-summary.png)
 
-It is necessary to install Postgresql Driver in the server and also the passwordless authentication plugin. But it will be done [later](#deploy-postgreql-jdbc-driver-and-passwordless-authentication-plugin) in this document as there is not yet a Postgresql server and a Managed Identity available to validate the installation.
+It is necessary to install Postgresql Driver in the server and also the passwordless authentication plugin. But it will be done [later](#deploy-postgreql-jdbc-driver-and-passwordless-authentication-plugin) in this document as neither a Postgresql server nor a user-assigned managed identity is available to validate the installation.
 
 ### Deploy Azure Database for Postgresql
 
-The following steps are required to setup Azure Database for Postgresql and create a user defined managed identity to access a database. All the steps can be performed in Azure CLI
+The following steps are required to setup an Azure Database for Postgresql and create a user-assigned managed identity to access the database. All the steps can be performed in Azure CLI.
 For simplicity there are some variables defined.
 
 ```bash
 # For simplicity, everything is deployed in the same resource group of the VM. The resource group should exist before running this script.
 RESOURCE_GROUP=[SET HERE THE RESOURCE GROUP CREATED FOR THE VM]
-# WLS server name that should be already deployed
-VM_NAME=[SET HERE THE NAME OF THE WLS VM]
+# WebSphere server name that should be already deployed
+VM_NAME=[SET HERE THE NAME OF THE WEBSPHERE VM]
 
 APPLICATION_NAME=checklistapp
+APPLICATION_LOGIN_NAME=checklistapp
 
 POSTGRESQL_HOST=[YOUR PREFERRED HOSTNAME OF THE POSTGRESQL SERVER]
 DATABASE_NAME=checklist
-DATABASE_FQDN=${POSTGRESQL_HOST}.postgresql.database.azure.com
+DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
 LOCATION=[YOUR PREFERRED LOCATION]
 ```
 
-#### login to your subscription
+#### Login to your subscription
 
 ```bash
 az login
 ```
-#### create Postgresql server
 
-It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
+#### Create Postgresql server
+
+It is created with an administrator account, but it won't be used as it wil use the Azure AD admin account to perform the administrative tasks.
 
 ```bash
 POSTGRESQL_ADMIN_USER=azureuser
@@ -104,7 +106,7 @@ az postgres server create \
     --storage-size 5120
 ```
 
-When creating Postgresql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current azure cli user will be configured as Azure AD administrator account.
+When creating Postgresql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current Azure cli user will be configured as Azure AD administrator account.
 
 To get the current user required data:
 
@@ -113,7 +115,7 @@ CURRENT_USER=$(az account show --query user.name -o tsv)
 CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
 ```
 
-Also note the current user domain
+Also note the current user domain:
 
 ```bash
 CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
@@ -130,7 +132,7 @@ az postgres server ad-admin create \
     --display-name $CURRENT_USER
 ```
 
-Create a database for the application
+Create a database for the application:
 
 ```bash
 # create postgres database
@@ -140,12 +142,12 @@ az postgres db create \
     -n $DATABASE_NAME
 ```
 
-#### Create a user defined managed identity
+#### Create a user-assigned managed identity
 
 ```bash
-# User assigned managed identity name
+# User-assigned managed identity name
 APPLICATION_MSI_NAME="id-${APPLICATION_NAME}"
-# Create user assignmed managed identity
+# Create user-assigned managed identity
 az identity create -g $RESOURCE_GROUP -n $APPLICATION_MSI_NAME
 # Assign the identity to the VM
 az vm identity assign --resource-group $RESOURCE_GROUP --name $VM_NAME --identities $APPLICATION_MSI_NAME
@@ -156,7 +158,7 @@ az vm identity assign --resource-group $RESOURCE_GROUP --name $VM_NAME --identit
 Service connection with managed identities is not supported for Virtual Machines. All required steps will be performed manually. To summarize, the steps are:
 
 1. Create a temporary firewall rule to allow access to the Postgresql server. Postgresql server was configured to allow only other Azure services to access it. To allow the deployment box to perform action on Postgresql it is necessary to open a connection. After all actions are performed it will be deleted.
-1. Get the user identity. Postgresql requires the clientId/applicationId
+1. Get the user-assigned managed identity. Postgresql requires the clientId/applicationId.
 1. Create a Postgresql user for the application identity and grant permissions to the database. For this action, it is necessary to connect to the database, for instance using _psql_ client tool. The current user, an Azure AD admin configured above, will be used to connect to the database. `az account get-access-token` can be used to get an access token.
 1. Remove the temporary firewall rule.
 
@@ -172,14 +174,14 @@ az postgres server firewall-rule create \
     --start-ip-address ${MY_IP} \
     --end-ip-address ${MY_IP}
 
-# 1. Get user defined managed clientId
+# 1. Get user-assigned managed clientId
 APPLICATION_IDENTITY_APPID=$(az identity show -g ${RESOURCE_GROUP} -n ${APPLICATION_MSI_NAME} --query clientId -o tsv)
 # 2. Note that login is performed using the current logged in user as AAD Admin and using an access token
 export PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
 # 3. Create Database tables
-psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <init-db.sql
+psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <./azure/init-db.sql
 
-# 3. Create psql user in the database and grant permissions the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
+# 3. Create psql user in the database and grant permissions to the database. Note that login is performed using the current logged in user as AAD Admin and using an access token
 psql "host=$DATABASE_FQDN port=5432 user=${CURRENT_USER}@${POSTGRESQL_HOST} dbname=${DATABASE_NAME} sslmode=require" <<EOF
 SET aad_validate_oids_in_tenant = off;
 
@@ -187,7 +189,7 @@ REVOKE ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" FROM "${APPLICATION_LOGIN_N
 
 DROP USER IF EXISTS "${APPLICATION_LOGIN_NAME}";
 
-CREATE ROLE "${APPLICATION_LOGIN_NAME}" WITH LOGIN PASSWORD '${APPSERVICE_IDENTITY_APPID}' IN ROLE azure_ad_user;
+CREATE ROLE "${APPLICATION_LOGIN_NAME}" WITH LOGIN PASSWORD '${APPLICATION_IDENTITY_APPID}' IN ROLE azure_ad_user;
 
 GRANT ALL PRIVILEGES ON DATABASE "${DATABASE_NAME}" TO "${APPLICATION_LOGIN_NAME}";
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "${APPLICATION_LOGIN_NAME}";
@@ -205,7 +207,7 @@ az postgres server firewall-rule delete \
 You can get the connection string by executing the following command:
 
 ```bash
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
 echo "Take note of the JDBC connection url to configure the datasource in websphere server"
 echo "JDBC connection url: $POSTGRESQL_CONNECTION_URL"
 ```
@@ -262,7 +264,26 @@ This will copy all the required libraries to `target/dependency` folder.
 
 ![Dependency folder](./media/deps-folder.png)
 
-You can open a ssh session on WebSphere Server VM and run the following commands:
+
+Create an inbound rule in the security group to open SSH port `22` before establishing the ssh session.
+
+```
+# Network security group name that should be already deployed
+NSG_NAME=[SET HERE THE NAME OF THE NETWORK SECURITY GROUP]
+
+az network nsg rule create --name TCP-22 \
+  --nsg-name ${NSG_NAME} \
+  --priority 100 \
+  --resource-group $RESOURCE_GROUP \
+  --access Allow \
+  --destination-address-prefixes "*" \
+  --destination-port-ranges 22 \
+  --direction Inbound \
+  --protocol Tcp \
+  --source-address-prefixes "*"
+```
+
+Now yuou can open a ssh session on WebSphere Server VM and run the following commands:
 
 ```bash
 mkdir libs
@@ -280,7 +301,7 @@ Now all the required libraries are in the `/home/websphere/libs` folder in the W
 
 #### Install the Postgresql JDBC driver, including passwordless authentication plugin
 
-The following steps will be performed in the WebSphere server administration console, that is accessible at https://<websphere-server-address>:9043/ibm/console. The address can be found in the portal on the Virtual Machine overview page.
+The following steps will be performed in the WebSphere server administration console, that is accessible at https://\<websphere-server-address\>:9043/ibm/console. The address can be found in the portal on the Virtual Machine overview page.
 
 ![WebSphere server overview](./media/was-vm-overview.png)
 
@@ -291,7 +312,7 @@ The installation consists of the following steps:
 
 ##### Copy jar files
 
-Create a folder under root /. As following steps will be executes as root, first execute _sudo su_.
+Open a ssh session and create a folder under root /. As following steps will be executes as root, first execute _sudo su_.
 
 ```bash
 sudo su
@@ -306,7 +327,7 @@ cp /home/websphere/libs/*.jar /jdbc-psql
 
 ##### Configure JDBC provider
 
-Go to Resources > JDBC > JDBC Providers and click on New.
+Go to Resources > JDBC > JDBC Providers, selet the scope specified with values for **Node** and **Server**, click on New.
 
 In this page, configure the following:
 
@@ -318,7 +339,7 @@ In this page, configure the following:
 
 Then click on _Next_.
 
-In this page it is necessary to configure the class path for **all** libraries. As mentioned before, this process is error prone, so it is provided simple script that prepares the classpath. To use it, copy the [prepare-cp.sh](../deps-trick/prepare-cp.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
+In this page it is necessary to configure the class path for **all** libraries. As mentioned before, this process is error prone, so it is provided with simple script that prepares the classpath. To use it, copy the [prepare-cp.sh](../deps-trick/prepare-cp.sh) script to the server and run it. Ensure that the path in the script corresponds to the absolute path of the folder where the libraries are located.
 
 ```bash
 for f in /jdbc-psql/*.jar; do
@@ -331,18 +352,25 @@ Copy the output of the script and paste it in the _Class path_ field.
 
 ![JDBC provider class path](./media/was-jdbc-postgres-2.png)
 
-Then click on _Next_ and _Finish_.
+Then click on _Next_ and _Finish_. Click _Save_.
 
 ![JDBC provider summary](./media/was-jdbc-postgres-3.png)
 
 Now the JDBC is configured it is necessary to allow WebSphere load all classes. The simplest way is rebooting the server.
 
+Besides, once you needn't keep ssh session on WebSphere Server VM, run the following command to delete the inbound rule which opens SSH port `22` before.
+
+```
+az network nsg rule delete --name TCP-22 \
+  --nsg-name ${NSG_NAME} \
+  --resource-group $RESOURCE_GROUP
+```
 
 #### Configure the Data Source in WebSphere
 
 The following steps will be performed in the WebSphere server administrator portal. It can be accessed on http://<wls-server-address>:7001/console. The address can be found in the Azure portal.
 
-Go to Resources > JDBC > Data Sources and create a new Data Source.
+Go to Resources > JDBC > Data Sources, selet the scope specified with values for **Node** and **Server**, and create a new Data Source.
 
 ![Data sources](./media/was-ds-postgres-props1.png)
 
@@ -362,7 +390,7 @@ Now it is necessary to configure the properties of the data source. Click on the
 
 ![Data source custom properties](./media/was-ds-postgres-custom-props.png)
 
-Now look for _URL_ property and set `jdbc:postgresql://<your psql host>.postgres.database.azure.com:3306/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=<your managed identity client id>`, for instance `jdbc:postgresql://thegreatpsql.postgres.database.azure.com:3306/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=0f8c2e2d-60c8-4b93-8bc0-579f2d8b5a27`.
+Now look for _URL_ property and set `jdbc:postgresql://<your psql host>.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=<your managed identity client id>`, for instance `jdbc:postgresql://thegreatpsql.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=0f8c2e2d-60c8-4b93-8bc0-579f2d8b5a27`.
 
 ![Data source URL](./media/was-ds-postgres-props-url.png)
 
@@ -460,13 +488,21 @@ Step 7
 
 ![Step 7](./media/was-app-step7.png)
 
-Now click finish and the application should be deployed and it should be started. So go to Applications > Enterprise Applications and verify that the application is started.
+Now click finish, then click save. The application should be deployed. Go to Applications > WebSphere enterprise applications and verify that the application is deployed but not started.
 
-If not, select the application and then click _Start_.
+Select the application and then click _Start_.
 
 ![Start application](./media/was-enterpriseapps-start.png)
 
- Now the application should be available at `http://<yourwebserver>:9080/passwordless`. You can test the application using the [Postman collection](./postman/check_lists_request.postman_collection.json) provided.
+ Now the application should be available at `http://<yourwebserver>:9080/passwordless`. You can test the application using the [Postman collection](./postman/check_lists_request.postman_collection.json) provided after replacing `http://localhost:8080` with `http://<yourwebserver>:9080/passwordless`. If you prefer `curl`, here is the example to test the application:
+
+ ```
+ # Create a check list
+ curl http://<yourwebserver>:9080/passwordless/checklist -X POST -d '{"name": "hajshd", "date": "2022-03-21", "description": "oekd list"}' -H 'Content-Type: application/json'
+
+ # Get all check lists
+ curl http://<yourwebserver>:9080/passwordless/checklist -X GET
+ ```
 
 ### Clean-up Azure resources
 Just delete the resource group where all the resources were created
