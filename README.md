@@ -27,7 +27,7 @@ All samples are written in Java 8 and require the following;
 
 - Java 8+.
 - Maven
-- Azure CLI
+- Azure CLI 2.41+
 - GIT
 - An azure subscription.
 - PSQL or MYSQL client for some examples.
