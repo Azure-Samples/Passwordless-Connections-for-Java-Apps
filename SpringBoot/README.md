@@ -1,6 +1,6 @@
-# Access Azure Database for PostgreSQL using Managed Identities for Spring Boot applications
+# Access Azure Database for PostgreSQL Flexible Server using Managed Identities for Spring Boot applications
 
-In this sample, you can learn how to configure a Spring Boot application to use Azure Database for PostgreSQL using Managed Identities. This sample includes the steps to deploy the application in:
+In this sample, you can learn how to configure a Spring Boot application to use Azure Database for PostgreSQL Flexible Server using Managed Identities. This sample includes the steps to deploy the application in:
 
 * Azure Spring Apps using JAR packaging
 * Azure App Service on Tomcat using WAR packaging
@@ -24,7 +24,7 @@ If you want to go on the details of code please read the [README_CODE.md](README
 
 # Azure Setup
 
-The following steps are required to setup an Azure Database for PostgreSQL and configure the application to access a database using a managed identity. All the steps can be performed in Azure CLI
+The following steps are required to setup an Azure Database for PostgreSQL Flexible Server and configure the application to access a database using a managed identity. All the steps can be performed in Azure CLI
 For simplicity there are some variables defined.
 
 ```bash
@@ -76,7 +76,7 @@ az login
 az group create --name $RESOURCE_GROUP --location $LOCATION
 ```
 
-## Create PostgreSQL server
+## Create PostgreSQL Flexible Server
 
 It is created with an administrator account, but it won't be used as it wil be used the Azure AD admin account to perform the administrative tasks.
 
