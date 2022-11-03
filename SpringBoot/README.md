@@ -86,25 +86,27 @@ POSTGRESQL_ADMIN_USER=azureuser
 # postgres admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32
 ```
 
 Create a database for the application
 
 ```bash
-az postgres db create \
+# create postgres database
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $DATABASE_NAME
+    -d $DATABASE_NAME
 ```
 
 ## Create the hosting environment
@@ -146,7 +148,7 @@ az spring app create --name ${APPSERVICE_NAME} \
 
 ```bash
 # create service connection.The service connection creates the managed identity if not exists.
-az spring connection create postgres \
+az spring connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --service $SPRING_APPS_SERVICE \
     --connection demo_connection \
@@ -214,7 +216,7 @@ The service connector will perform all required steps to connect the application
 
 ```bash
 # create service connection. 
-az webapp connection create postgres \
+az webapp connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \
@@ -364,7 +366,7 @@ The logged-in user in Azure CLI is configured as PostgreSQL Azure AD administrat
 
 ```bash
 # create service connection.
-az containerapp connection create postgres \
+az containerapp connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
