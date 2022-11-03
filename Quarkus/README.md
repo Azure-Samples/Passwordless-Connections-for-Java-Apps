@@ -69,26 +69,27 @@ It is created with an administrator account, but it won't be used as it wil be u
 POSTGRESQL_ADMIN_USER=azureuser
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 # create postgresql server
-az postgres server create \
+ az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32 
 ```
 > NOTE: This command will generate a random password for the PostgreSQL admin user as it is mandatory. Postgres admin won't be used as Azure AD authentication is leveraged also for administering the database.
 
 Create a database for the application:
 
 ```bash
-az postgres db create \
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $POSTGRESQL_DATABASE_NAME
+    -d $POSTGRESQL_DATABASE_NAME
 ```
 
 ### Create Azure Container App
@@ -159,7 +160,7 @@ The logged-in user in Azure CLI is configured as PostgreSQL Azure AD administrat
 Create the service connection:
 
 ```bash
-az containerapp connection create postgres \
+az containerapp connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
