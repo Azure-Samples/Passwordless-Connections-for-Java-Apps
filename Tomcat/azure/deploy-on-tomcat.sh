@@ -17,22 +17,23 @@ CURRENT_USER=$(az account show --query user.name -o tsv)
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32 
 
 # create postgres database
-az postgres db create \
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $DATABASE_NAME
+    -d $DATABASE_NAME
 
 # Create app service plan
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku B1 --is-linux
@@ -40,7 +41,7 @@ az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GRO
 az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "TOMCAT:10.0-java11"
 
 # create service connection. 
-az webapp connection create postgres \
+az webapp connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \
