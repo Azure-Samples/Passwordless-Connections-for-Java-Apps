@@ -1,4 +1,4 @@
-FROM openjdk:8-jdk-slim
+FROM openjdk:17-jdk-slim
 # takes the jar file as an argument
 ARG ARTIFACT_NAME
 # assumes the application entry port is 8080

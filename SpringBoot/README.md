@@ -9,10 +9,10 @@ In this sample, you can learn how to configure a Spring Boot application to use 
 
 ## Prerequire for this sample
 
-* Java SE 8 (or 11)
+* Java SE 17
 * Azure CLI command
 * Azure Subscription
-* git command
+* Git command
 * Maven command
 * psql client
 * Bash
@@ -20,7 +20,7 @@ In this sample, you can learn how to configure a Spring Boot application to use 
 
 All samples were developed and tested using Visual Studio Code on WSL2 (Windows Subsystem for Linux 2). Some tools can be different depending on your OS.
 
-If you want to go on the details of code please read the [README_CODE.md](README_CODE.md) file.
+If you want to go on the details of code please read the [CODE_README.md](CODE_README.md) file.
 
 # Azure Setup
 
@@ -139,6 +139,7 @@ The application will be created with a public endpoint to make it accessible fro
 az spring app create --name ${APPSERVICE_NAME} \
     -s ${SPRING_APPS_SERVICE} \
     -g ${RESOURCE_GROUP} \
+    --runtime-version Java_17
     --assign-endpoint true 
 ```
 
@@ -171,7 +172,7 @@ It can be configured as an environment variable in the deployment.
 
 ```bash
 # Build JAR file
-mvn clean package -f pom.xml
+mvn clean package -f pom.xml -DskipTests
 
 # Deploy application
 az spring app deploy --name $APPSERVICE_NAME\
@@ -196,14 +197,14 @@ For Standalone JavaSE:
 
 ```bash
 # Create application service
-az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:8-jre8"
+az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:17-java17"
 ```
 
 For Tomcat:
 
 ```bash
 # Create application service
-az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "TOMCAT:9.0-jre8"
+az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "TOMCAT:10.0-java17"
 ```
 
 If it is not specified, the service connection will create a System managed identity to connect to the database.
@@ -215,6 +216,7 @@ The service connector will perform all required steps to connect the application
 ```bash
 # create service connection. 
 az webapp connection create postgres \
+    --connection postgres_passwordless_connection \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \
@@ -255,7 +257,7 @@ In both cases it is necessary to include the following dependency to use the Azu
 <dependency>
 	<groupId>com.azure.spring</groupId>
 	<artifactId>spring-cloud-azure-starter-jdbc-postgresql</artifactId>
-	<version>4.5.0-beta.1</version>
+	<version>6.0.0-beta.4</version>
 </dependency>
 ```
 
@@ -276,7 +278,7 @@ az webapp config appsettings set -g $RESOURCE_GROUP -n $APPSERVICE_NAME --settin
 
 ```bash
 # Build WAR file
-mvn clean package -f pom-war.xml
+mvn clean package -f pom-war.xml -DskipTests
 # Create webapp deployment
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
 ```
@@ -285,7 +287,7 @@ az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-
 
 ```bash
 # Build JAR file
-mvn clean package -f pom.xml
+mvn clean package -f pom.xml -DskipTests
 
 # Create webapp deployment
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.jar --type jar
@@ -365,6 +367,7 @@ The logged-in user in Azure CLI is configured as PostgreSQL Azure AD administrat
 ```bash
 # create service connection.
 az containerapp connection create postgres \
+    --connection passwordless_connection \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
@@ -391,5 +394,5 @@ It is provided 4 scripts to create and deploy the environment depending on the h
 Just delete the resource group where all the resources were created
 
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete -n $RESOURCE_GROUP
 ```

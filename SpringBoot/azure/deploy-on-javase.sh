@@ -33,10 +33,11 @@ az postgres db create \
 # Create app service plan
 az appservice plan create --name $APPSERVICE_PLAN --resource-group $RESOURCE_GROUP --location $LOCATION --sku B1 --is-linux
 # Create application service
-az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:8-jre8"
+az webapp create --name $APPSERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APPSERVICE_PLAN --runtime "JAVA:17-java17"
 
 # create service connection. 
 az webapp connection create postgres \
+    --connection postgres_passwordless_onnection \
     --resource-group $RESOURCE_GROUP \
     --name $APPSERVICE_NAME \
     --tg $RESOURCE_GROUP \

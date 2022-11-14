@@ -13,7 +13,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"name\": \"hajshd\",\r\n    \"date\": \"2022-03-21\",\r\n    \"description\": \"oekd list\"\r\n}",
+					"raw": "{\r\n    \"name\": \"hajshd\",\r\n    \"date\": \"2022-03-21T12:20:00.000\",\r\n    \"description\": \"oekd list\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
