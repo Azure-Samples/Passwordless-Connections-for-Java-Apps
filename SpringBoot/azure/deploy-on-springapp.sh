@@ -40,6 +40,7 @@ az spring create --name ${SPRING_APPS_SERVICE} \
 az spring app create --name ${APPSERVICE_NAME} \
     -s ${SPRING_APPS_SERVICE} \
     -g ${RESOURCE_GROUP} \
+    --runtime-version Java_17
     --assign-endpoint true 
 
 # create service connection.The service connection creates the managed identity if not exists.

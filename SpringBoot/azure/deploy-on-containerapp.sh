@@ -71,6 +71,7 @@ az containerapp create \
 
 # create service connection.
 az containerapp connection create postgres \
+    --connection passwordless_connection \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
