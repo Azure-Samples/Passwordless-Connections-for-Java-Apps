@@ -38,38 +38,34 @@ CURRENT_USER_OBJECTID=$(az ad user show --id $CURRENT_USER --query id -o tsv)
 APPLICATION_LOGIN_NAME=checklistapp
 
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32 
 
 # create postgres database
-az postgres db create \
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $DATABASE_NAME
+    -d $DATABASE_NAME
 
-# create postgresql server AAD admin user
-az postgres server ad-admin create \
-    --server-name $POSTGRESQL_HOST \
-    --resource-group $RESOURCE_GROUP \
-    --object-id $CURRENT_USER_OBJECTID \
-    --display-name $CURRENT_USER
+# before continue with next steps, please follow the instrucction in readme.md to configure an Azure AD admin for the database
 
 # create service connection. Not supported VMs and managed identity
 # Creating manually:
 # 0. Create a temporary firewall rule to allow connections from current machine to the postgresql server
 MY_IP=$(curl http://whatismyip.akamai.com)
-az postgres server firewall-rule create \
+az postgres flexible-server firewall-rule create \
     --resource-group $RESOURCE_GROUP \
-    --server-name $POSTGRESQL_HOST \
-    --name AllowCurrentMachineToConnect \
+    --name $POSTGRESQL_HOST \
+    --rule-name AllowCurrentMachineToConnect \
     --start-ip-address ${MY_IP} \
     --end-ip-address ${MY_IP}
 

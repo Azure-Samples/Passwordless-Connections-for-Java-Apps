@@ -94,16 +94,17 @@ POSTGRESQL_ADMIN_USER=azureuser
 # Postgresql admin won't be used as Azure AD authentication is leveraged also for administering the database
 POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32 
 ```
 
 When creating Postgresql server, it is necessary to create an Azure AD administrator account to enable Azure AD authentication. The current Azure cli user will be configured as Azure AD administrator account.
@@ -121,25 +122,32 @@ Also note the current user domain:
 CURRENT_USER_DOMAIN=$(cut -d '@' -f2 <<< $CURRENT_USER)
 ```
 
-Then, create the Azure AD administrator account:
+Azure AD administrator is not yet supported in the azure cli. Enable Azure AD authentication and create the Azure AD administrator account in the portal:
 
-```bash
-# create postgresql server AAD admin user
-az postgres server ad-admin create \
-    --server-name $POSTGRESQL_HOST \
-    --resource-group $RESOURCE_GROUP \
-    --object-id $CURRENT_USER_OBJECTID \
-    --display-name $CURRENT_USER
-```
+Go to Security / Authentication and select `PostgreSQL and Azure Active Directory authentication":
+
+![Postgresql Azure AD authentication](./media/psql-auth1.png)
+
+Then save. This action will restart the Postgresql server.
+
+Once the server is restarted, go to Security / Azure Active Directory admin
+
+![Postgresql Azure AD authentication](./media/psql-auth2.png)
+
+and create the Azure AD administrator account:
+
+![Postgresql Azure AD authentication](./media/psql-auth4.png)
+
+Now you can continue in the command line.
 
 Create a database for the application:
 
 ```bash
 # create postgres database
-az postgres db create \
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $DATABASE_NAME
+    -d $DATABASE_NAME
 ```
 
 #### Create a user-assigned managed identity
@@ -167,10 +175,10 @@ Service connection with managed identities is not supported for Virtual Machines
 ```bash
 # 0. Create a temporary firewall rule to allow connections from current machine to the postgresql server
 MY_IP=$(curl http://whatismyip.akamai.com)
-az postgres server firewall-rule create \
+az postgres flexible-server firewall-rule create \
     --resource-group $RESOURCE_GROUP \
-    --server-name $POSTGRESQL_HOST \
-    --name AllowCurrentMachineToConnect \
+    --name $POSTGRESQL_HOST \
+    --rule-name AllowCurrentMachineToConnect \
     --start-ip-address ${MY_IP} \
     --end-ip-address ${MY_IP}
 
@@ -198,10 +206,10 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "${APPLICATION_LOGIN_N
 EOF
 
 # 4. Remove temporary firewall rule
-az postgres server firewall-rule delete \
+az postgres flexible-server firewall-rule delete \
     --resource-group $RESOURCE_GROUP \
-    --server $POSTGRESQL_HOST \
-    --name AllowCurrentMachineToConnect
+    --name $POSTGRESQL_HOST \
+    --rule-name AllowCurrentMachineToConnect
 ```
 
 You can get the connection string by executing the following command:
