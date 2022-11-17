@@ -1,14 +1,9 @@
 spring:
-    datasource:
-        url: jdbc:postgresql://psql-tomcat-credential-free.postgres.database.azure.com:5432/checklist
-        username: fmiguel@microsoft.com@psql-tomcat-credential-free
     sql:
         init:
             mode: ALWAYS
-            # schema-locations:
-            #     - classpath:db/postgresql/schema.sql
     jpa:
-        database-platform: org.hibernate.dialect.PostgreSQLDialect
+        database-platform: org.hibernate.dialect.PostgreSQL10Dialect
         open-in-view: false
         hibernate:
             ddl-auto: create

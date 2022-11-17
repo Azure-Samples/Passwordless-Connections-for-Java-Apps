@@ -21,22 +21,23 @@ POSTGRESQL_ADMIN_PASSWORD=$(pwgen -s 15 1)
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
 # create postgresql server
-az postgres server create \
+az postgres flexible-server create \
     --name $POSTGRESQL_HOST \
     --resource-group $RESOURCE_GROUP \
     --location $LOCATION \
     --admin-user $POSTGRESQL_ADMIN_USER \
     --admin-password "$POSTGRESQL_ADMIN_PASSWORD" \
-    --public 0.0.0.0 \
-    --sku-name GP_Gen5_2 \
-    --version 11 \
-    --storage-size 5120 
+    --public-access 0.0.0.0 \
+    --tier Burstable \
+    --sku-name Standard_B1ms \
+    --version 14 \
+    --storage-size 32 
 
 # create postgres database
-az postgres db create \
+az postgres flexible-server db create \
     -g $RESOURCE_GROUP \
     -s $POSTGRESQL_HOST \
-    -n $DATABASE_NAME
+    -d $DATABASE_NAME
 # create an Azure Container Registry (ACR) to hold the images for the demo
 az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Standard --location $LOCATION
 
@@ -70,7 +71,7 @@ az containerapp create \
     --env-vars "SPRING_DATASOURCE_AZURE_PASSWORDLESSENABLED=true"
 
 # create service connection.
-az containerapp connection create postgres \
+az containerapp connection create postgres-flexible \
     --resource-group $RESOURCE_GROUP \
     --name $CONTAINERAPPS_NAME \
     --container $CONTAINERAPPS_CONTAINERNAME \
