@@ -4,7 +4,7 @@
 # It deploys a weblogic server and a weblogic admin server in the same VM.
 
 # For simplicity, everything is deployed in the same resource group of the VM. The resource group should exist before running this script.
-RESOURCE_GROUP=rg-wls-passwordless
+RESOURCE_GROUP=rg-weblogic-passwordless
 # WLS server name that should be already deployed
 VM_NAME=adminVM
 
@@ -118,7 +118,7 @@ mvn clean package -DskipTests -f ../pom.xml
 
 # print the jdbc url to be used by the application
 # Note that the connection url includes the password-free authentication plugin and the managed identity assigned to the VM.
-MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+MYSQL_CONNECTION_URL="jdbc:mysql://${DATABASE_FQDN}:3306/${DATABASE_NAME}?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.extensions.jdbc.mysql.AzureMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.extensions.jdbc.mysql.AzureMysqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
 echo "Take note of the JDBC connection url to configure the datasource in WebLogic server"
 echo "JDBC connection url: $MYSQL_CONNECTION_URL"
 # Datasource configuration and application deployment should be done in the application server. Steps are explained in the README.md file.

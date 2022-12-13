@@ -238,7 +238,7 @@ As this is an error prone process due to the amount of dependencies of the authe
 
 #### Prepare the libraries
 
-In this repository you may find a special [project](../deps-trick/README.md) that can be used just to prepare the libraries. It is a Maven project that will download the required libraries. To use it open the pom.xml file and verify it contains the dependency `com.azure:azure-identity-providers-jdbc-mysql:1.0.0-beta.1` and mysql driver dependency.
+In this repository you may find a special [project](../deps-trick/README.md) that can be used just to prepare the libraries. It is a Maven project that will download the required libraries. To use it open the pom.xml file and verify it contains the dependency `com.azure:azure-identity-extensions:1.0.0` and mysql driver dependency.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -256,8 +256,8 @@ In this repository you may find a special [project](../deps-trick/README.md) tha
   <dependencies>
     <dependency>
       <groupId>com.azure</groupId>
-      <artifactId>azure-identity-providers-jdbc-mysql</artifactId>
-      <version>1.0.0-beta.1</version>
+      <artifactId>azure-identity-extensions</artifactId>
+      <version>1.0.0</version>
     </dependency>    
     <dependency>
       <groupId>mysql</groupId>
@@ -402,7 +402,7 @@ Then in the connection properties, set the database and hostname created previou
 In the last screen, it is necessary to specify some additional parameters on the JDBC url. It should look like this:
 
 ```
-jdbc:mysql://<mysqlhostname>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.providers.mysql.AzureIdentityMysqlAuthenticationPlugin&azure.clientId=<ManagedIdentityClientId>
+jdbc:mysql://<mysqlhostname>.mysql.database.azure.com:3306/checklist?useSSL=true&requireSSL=true&defaultAuthenticationPlugin=com.azure.identity.extensions.jdbc.mysql.AzureMysqlAuthenticationPlugin&authenticationPlugins=com.azure.identity.extensions.jdbc.mysql.AzureMysqlAuthenticationPlugin&azure.clientId=<ManagedIdentityClientId>
 ```
 
 * useSSL and requireSSL are set to true. When using Azure AD authentication, the password sent is an OAuth access token. The token is sent just an encoded string that can be easily decoded. For that reason, it is necessary to enforce the use of SSL.

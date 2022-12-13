@@ -37,7 +37,7 @@ APPSERVICE_NAME=[YOUR APPLICATION NAME]
 APPSERVICE_PLAN=[YOUR APPLICATION PLAN NAME]
 LOCATION=[YOUR PREFERRED LOCATON]
 DATABASE_FQDN=${POSTGRESQL_HOST}.postgres.database.azure.com
-PSQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"
+PSQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin"
 ```
 
 ### login to your subscription
@@ -126,7 +126,7 @@ As part of the configuration, the service connector defines a environment variab
 
 ```bash
 # Set connection url environment variables. It is necessary to pass it on CATALINA_OPTS environment variable
-az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin"'
+az webapp config appsettings set --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --settings 'CATALINA_OPTS=-DdbUrl="${AZURE_POSTGRESQL_CONNECTIONSTRING}&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin"'
 ```
 
 Be mindful of escape quotes in the command above. The single quote are required to do not replace $AZURE_POSTGRESQL_CONNECTIONSTRING with the value of the environment variable in the local CLI. During runtime that variable will be replace with the existing value in the App Service.

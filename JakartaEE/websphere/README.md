@@ -215,7 +215,7 @@ az postgres flexible-server firewall-rule delete \
 You can get the connection string by executing the following command:
 
 ```bash
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
 echo "Take note of the JDBC connection url to configure the datasource in websphere server"
 echo "JDBC connection url: $POSTGRESQL_CONNECTION_URL"
 ```
@@ -232,7 +232,7 @@ At this point, it is possible to deploy the required components in WebSphere and
 
 To configure Postgresql JDBC driver and passwordless authentication plugin, it is necessary to download the required libraries and copy them to the WebSphere server. The authentication plugin relies on Azure.Identity libraries, which at the same time depends on other libraries and all these libraries must be copied to the WebSphere server and be configured on the class path of the JDBC provider. This process is error prone, for that reason you may find a special [project](../deps-trick/README.md) in this repository to help you with this task. This is a Maven project that will download the required libraries.
 
-As this sample targets Postgresql, open the [pom-pgsql.xml](../deps-trick/pom-pgsql.xml) and verify that it contains the dependency `com.azure:azure-identity-providers-jdbc-postgresql:1.0.0-beta.1`.
+As this sample targets Postgresql, open the [pom-pgsql.xml](../deps-trick/pom-pgsql.xml) and verify that it contains the dependency `com.azure:azure-identity-extensions:1.0.0`.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -250,8 +250,8 @@ As this sample targets Postgresql, open the [pom-pgsql.xml](../deps-trick/pom-pg
   <dependencies>
     <dependency>
       <groupId>com.azure</groupId>
-      <artifactId>azure-identity-providers-jdbc-postgresql</artifactId>
-      <version>1.0.0-beta.1</version>
+      <artifactId>azure-identity-extensions</artifactId>
+      <version>1.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
@@ -291,7 +291,7 @@ az network nsg rule create --name TCP-22 \
   --source-address-prefixes "*"
 ```
 
-Now yuou can open a ssh session on WebSphere Server VM and run the following commands:
+Now you can open a ssh session on WebSphere Server VM and run the following commands:
 
 ```bash
 mkdir libs
@@ -376,7 +376,9 @@ az network nsg rule delete --name TCP-22 \
 
 #### Configure the Data Source in WebSphere
 
-The following steps will be performed in the WebSphere server administrator portal. It can be accessed on http://<wls-server-address>:7001/console. The address can be found in the Azure portal.
+The following steps will be performed in the WebSphere server administrator portal. It can be accessed on https://<websphere-server-address>:9043/ibm/console. The address can be found in the Azure portal.
+
+> This sample doesn't cover WebSphere in depth, for instance SSL configuration. For that reason, probably you will see an SSL warning when accessing the portal. Just click on _Continue to this website (not recommended)_.
 
 Go to Resources > JDBC > Data Sources, selet the scope specified with values for **Node** and **Server**, and create a new Data Source.
 
@@ -398,7 +400,7 @@ Now it is necessary to configure the properties of the data source. Click on the
 
 ![Data source custom properties](./media/was-ds-postgres-custom-props.png)
 
-Now look for _URL_ property and set `jdbc:postgresql://<your psql host>.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=<your managed identity client id>`, for instance `jdbc:postgresql://thegreatpsql.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=0f8c2e2d-60c8-4b93-8bc0-579f2d8b5a27`.
+Now look for _URL_ property and set `jdbc:postgresql://<your psql host>.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin&azure.clientId=<your managed identity client id>`, for instance `jdbc:postgresql://thegreatpsql.postgres.database.azure.com:5432/checklist?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin&azure.clientId=0f8c2e2d-60c8-4b93-8bc0-579f2d8b5a27`.
 
 ![Data source URL](./media/was-ds-postgres-props-url.png)
 
