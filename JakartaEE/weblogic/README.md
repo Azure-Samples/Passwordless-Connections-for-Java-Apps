@@ -533,7 +533,7 @@ There is a [postman collection](./postman/check_lists_request.postman_collection
 Just delete the resource group where all the resources were created
 
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete --name $RESOURCE_GROUP
 ```
 
 ## Overview of the code

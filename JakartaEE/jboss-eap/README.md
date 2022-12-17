@@ -172,7 +172,7 @@ In [deploy.sh](azure/deploy.sh) script you can find all the steps required to se
 ### Clean-up Azure resources
 Just delete the resource group where all the resources were created
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete --name $RESOURCE_GROUP
 ```
 
 ## Overview of the code

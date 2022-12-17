@@ -393,5 +393,5 @@ It is provided 4 scripts to create and deploy the environment depending on the h
 Just delete the resource group where all the resources were created
 
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete --name $RESOURCE_GROUP
 ```

@@ -517,7 +517,7 @@ Select the application and then click _Start_.
 ### Clean-up Azure resources
 Just delete the resource group where all the resources were created
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete --name $RESOURCE_GROUP
 ```
 
 ## Overview of the code

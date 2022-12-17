@@ -186,7 +186,7 @@ A script has been provided to create and deploy the application to Azure Contain
 Just delete the resource group where all the resources were created
 
 ```bash
-az group delete $RESOURCE_GROUP
+az group delete --name $RESOURCE_GROUP
 ```
 
 ## Run locally
