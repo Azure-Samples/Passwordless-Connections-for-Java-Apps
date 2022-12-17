@@ -51,7 +51,7 @@ If war packaging is selected, the Initializr will also include the following dep
 <dependency>
 	<groupId>com.azure.spring</groupId>
 	<artifactId>spring-cloud-azure-starter-jdbc-postgresql</artifactId>
-	<version>4.5.0-beta.1</version>
+	<version>4.5.0</version>
 </dependency>
 ```
 
