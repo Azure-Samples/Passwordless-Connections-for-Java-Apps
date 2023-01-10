@@ -29,8 +29,8 @@ A dependency for Postgres JDBC driver as follows on `pom.xml`. If Postgres provi
 ```xml
 <dependency>
     <groupId>com.azure</groupId>
-    <artifactId>azure-identity-providers-jdbc-postgresql</artifactId>
-    <version>1.0.0-beta.1</version>
+    <artifactId>azure-identity-extensions</artifactId>
+    <version>1.0.0</version>
 </dependency>
 ```
 

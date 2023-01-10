@@ -7,3 +7,8 @@ spring:
         open-in-view: false
         hibernate:
             ddl-auto: create
+    datasource:
+        azure:
+            passwordless-enabled: true
+        url: jdbc:postgresql://psql-tomcat-passwordless.postgres.database.azure.com:5432/checklist?sslmode=require
+        username: fmiguel@microsoft.com

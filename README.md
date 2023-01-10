@@ -27,9 +27,9 @@ All samples are written in Java 8 and require the following;
 
 - Java 8+.
 - Maven
-- Azure CLI 2.41+
+- Azure CLI 2.44+
 - GIT
-- An azure subscription.
+- An Azure subscription.
 - PSQL or MYSQL client for some examples.
 - pwgen (optional) for generating passwords in some examples.
 

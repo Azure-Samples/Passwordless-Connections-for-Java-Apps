@@ -108,7 +108,7 @@ mvn clean package -DskipTests -f ../pom.xml
 
 # print the jdbc url to be used by the application
 # Note that the connection url includes the password-free authentication plugin and the managed identity assigned to the VM.
-POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.providers.postgresql.AzureIdentityPostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
+POSTGRESQL_CONNECTION_URL="jdbc:postgresql://${DATABASE_FQDN}:5432/${DATABASE_NAME}?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin&azure.clientId=${APPLICATION_IDENTITY_APPID}"
 echo "Take note of the JDBC connection url to configure the datasource in websphere server"
 echo "JDBC connection url: $POSTGRESQL_CONNECTION_URL"
 # Datasource configuration and application deployment should be done in the application server. Steps are explained in the README.md file.
