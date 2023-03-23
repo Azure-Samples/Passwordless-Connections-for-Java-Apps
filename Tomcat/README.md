@@ -142,11 +142,12 @@ az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-
 
 ### All together
 
-In [deploy.sh](azure/deploy.sh) script you can find all the steps required to setup the infrastructure and deploy the sample application.
+In [deploy.sh](azure/deploy-on-tomcat.sh) script you can find all the steps required to setup the infrastructure and deploy the sample application.
 
 ### Clean-up Azure resources
 
 Just delete the resource group where all the resources were created
+
 ```bash
 az group delete --name $RESOURCE_GROUP
 ```
