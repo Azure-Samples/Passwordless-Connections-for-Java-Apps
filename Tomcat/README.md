@@ -140,6 +140,25 @@ mvn clean package
 az webapp deploy --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --src-path target/app.war --type war
 ```
 
+### Test the application
+
+You can test the application using [this postman collection](./postman/check-lists-request.postman_collection.json) or by executing the following commands:
+
+```bash
+# Get webapp url
+WEBAPP_URL=$(az webapp show --resource-group $RESOURCE_GROUP --name $APPSERVICE_NAME --query defaultHostName -o tsv)
+# Create a list
+curl -X POST -H "Content-Type: application/json" -d '{"name": "list1","date": "2022-03-21T00:00:00","description": "Sample checklist"}' https://${WEBAPP_URL}/checklist
+# Create few items on the list 1
+curl -X POST -H "Content-Type: application/json" -d '{"description": "item 1"}' https://${WEBAPP_URL}/checklist/1/item
+curl -X POST -H "Content-Type: application/json" -d '{"description": "item 2"}' https://${WEBAPP_URL}/checklist/1/item
+curl -X POST -H "Content-Type: application/json" -d '{"description": "item 3"}' https://${WEBAPP_URL}/checklist/1/item
+# Get all lists
+curl https://${WEBAPP_URL}/checklist
+# Get list 1
+curl https://${WEBAPP_URL}/checklist/1
+```
+
 ### All together
 
 In [deploy.sh](azure/deploy-on-tomcat.sh) script you can find all the steps required to setup the infrastructure and deploy the sample application.
